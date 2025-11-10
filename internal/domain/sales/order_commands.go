@@ -1,28 +1,28 @@
 package sales
 
 import (
-	"ddd/pkg/aggregate"
+	"ddd/pkg/domain"
 )
 
 type CreateOrder struct {
-	OrderID aggregate.ID[Order]
-	CustID  aggregate.ID[Customer]
+	OrderID domain.ID[Order]
+	CustID  domain.ID[Customer]
 }
 
-func (c CreateOrder) Execute(o *Order) aggregate.Event[Order] {
+func (c CreateOrder) Execute(o *Order) domain.Event[Order] {
 	event := &OrderCreated{
 		Order{ID: c.OrderID, CustomerID: c.CustID,
-			Cars: make(map[aggregate.ID[Car]]struct{}), Status: ProcessingByCustomer,
+			Cars: make(map[domain.ID[Car]]struct{}), Status: ProcessingByCustomer,
 		}}
 	return event
 }
 
 type CloseOrder struct {
-	OrderID aggregate.ID[Order]
-	CustID  aggregate.ID[Customer]
+	OrderID domain.ID[Order]
+	CustID  domain.ID[Customer]
 }
 
-func (c CloseOrder) Execute(o *Order) aggregate.Event[Order] {
+func (c CloseOrder) Execute(o *Order) domain.Event[Order] {
 	event := &OrderClosed{
 		OrderID: c.OrderID,
 		CustID:  o.CustomerID,
@@ -31,11 +31,11 @@ func (c CloseOrder) Execute(o *Order) aggregate.Event[Order] {
 }
 
 type AddCarToOrder struct {
-	OrderID aggregate.ID[Order]
-	CarID   aggregate.ID[Car]
+	OrderID domain.ID[Order]
+	CarID   domain.ID[Car]
 }
 
-func (c AddCarToOrder) Execute(o *Order) aggregate.Event[Order] {
+func (c AddCarToOrder) Execute(o *Order) domain.Event[Order] {
 	event := &CarAddedToOrder{
 		OrderID: c.OrderID,
 		CarID:   c.CarID,

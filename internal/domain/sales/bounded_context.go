@@ -1,55 +1,42 @@
 package sales
 
 import (
-	"bytes"
 	"context"
-	"ddd/pkg/aggregate"
+	"ddd/pkg/domain"
 	"ddd/pkg/store/esnats"
-	"encoding/gob"
+	"ddd/pkg/store/snapnats"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type Commander[T any] interface {
-	Command(ctx context.Context, id aggregate.ID[T], command aggregate.Command[T]) error
-}
-type Subscriber[T any] interface {
-	Subscribe(ctx context.Context, name string, handler func(aggregate.Event[T]) error, ordered bool)
-}
-
-type Aggregate[T any] interface {
-	Commander[T]
-	Subscriber[T]
-}
-
 type boundedContext struct {
-	Customer        Aggregate[Customer]
-	Order           Aggregate[Order]
+	Customer        domain.Aggregate[Customer]
+	Order           domain.Aggregate[Order]
 	orderService    *OrderService
 	customerService *CustomerService
 }
 
-type MySerder struct {
-}
+// type MySerder struct {
+// }
 
-func (m *MySerder) Serialize(in any) ([]byte, error) {
+// func (m *MySerder) Serialize(in any) ([]byte, error) {
 
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(in); err != nil {
+// 	var buf bytes.Buffer
+// 	if err := gob.NewEncoder(&buf).Encode(in); err != nil {
 
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
+// 		return nil, err
+// 	}
+// 	return buf.Bytes(), nil
+// }
 
-func (m *MySerder) Deserialize(data []byte, out any) error {
+// func (m *MySerder) Deserialize(data []byte, out any) error {
 
-	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(out); err != nil {
-		return err
-	}
-	return nil
-}
+// 	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(out); err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func New(ctx context.Context) *boundedContext {
 
@@ -62,27 +49,23 @@ func New(ctx context.Context) *boundedContext {
 		panic(err)
 	}
 	custStream := esnats.NewEventStream[Customer](ctx, js)
-	customer := aggregate.New(ctx,
+	customer := domain.NewAggregateRoot(ctx,
 		custStream,
-		esnats.NewSnapshotStore[Customer](ctx, js),
+		snapnats.NewSnapshotStore[Customer](ctx, js),
 	)
-	aggregate.RegisterEvent[CustomerCreated](customer)
-	//gob.Register(CustomerCreated{})
-	// gob.Register(OrderAccepted{})
-	// gob.Register(OrderCreated{})
-	// gob.Register(OrderClosed{})
-	// gob.Register(OrderVerified{})
-	aggregate.RegisterEvent[OrderAccepted](customer)
-	//aggregate.RegisterCommand[CreateCustomer](customer)
 
-	order := aggregate.New[Order](ctx,
+	domain.RegisterEvent[CustomerCreated](customer)
+	domain.RegisterEvent[OrderAccepted](customer)
+
+	order := domain.NewAggregateRoot[Order](ctx,
 		esnats.NewEventStream[Order](ctx, js),
-		esnats.NewSnapshotStore[Order](ctx, js),
+		snapnats.NewSnapshotStore[Order](ctx, js),
 	)
-	aggregate.RegisterEvent[OrderCreated](order)
-	aggregate.RegisterEvent[OrderClosed](order)
-	aggregate.RegisterEvent[OrderVerified](order)
-	//aggregate.RegisterCommand[CreateOrder](order)
+
+	domain.RegisterEvent[OrderCreated](order)
+	domain.RegisterEvent[OrderClosed](order)
+	domain.RegisterEvent[OrderVerified](order)
+
 	c := &boundedContext{
 		Customer:        customer,
 		Order:           order,

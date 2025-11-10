@@ -4,36 +4,41 @@ import (
 	"ddd/internal/serde"
 	"fmt"
 	"log/slog"
+	"strings"
+	"sync"
 
 	"reflect"
 )
 
-type ctor[T any] func(payload []byte) (T, error)
+type ctor func(payload []byte) (any, error)
 
-type RegistryStore[T any] struct {
-	serder serde.Serder
-	items  map[string]ctor[T]
+type typeStore struct {
+	serde.Serder
+	ermu  sync.RWMutex
+	items map[string]ctor
 }
 
-func (r *RegistryStore[T]) Register(item T) {
+func (r *typeStore) Register(item any) {
 	t := reflect.TypeOf(item)
-	slog.Info("EventRegistered", "type", t.Name())
+	slog.Info("event registered", "type", t.Name())
 
 	if t.Kind() != reflect.Struct && t.Kind() != reflect.Interface {
 		panic("register: registered type must be struct or interface")
 	}
-	ctor := func(payload []byte) (T, error) {
-		var zero T
+	ctor := func(payload []byte) (any, error) {
+
 		vt := reflect.New(t).Interface()
-		if err := r.serder.Deserialize(payload, vt); err != nil {
-			return zero, fmt.Errorf("registry: %w", err)
+		if err := r.Deserialize(payload, vt); err != nil {
+			return nil, fmt.Errorf("registry: %w", err)
 		}
-		return vt.(T), nil
+		return vt, nil
 		//	var val V
 
 	}
-
+	r.ermu.Lock()
 	r.items[TypeNameFrom(item)] = ctor
+	r.ermu.Unlock()
+
 }
 
 func TypeNameFrom(e any) string {
@@ -53,15 +58,18 @@ func TypeNameFrom(e any) string {
 		//	json.Marshal()
 	}
 }
-func (r *RegistryStore[T]) Exists(tname string) bool {
+func (r *typeStore) TypeExists(tname string) bool {
+	r.ermu.RLock()
+	defer r.ermu.RUnlock()
 	if _, ok := r.items[tname]; ok {
 		return true
 	}
 	return false
 }
 
-func (r *RegistryStore[T]) Get(tname string, b []byte) (T, error) {
-
+func (r *typeStore) GetType(tname string, b []byte) (any, error) {
+	r.ermu.RLock()
+	defer r.ermu.RUnlock()
 	if ct, ok := r.items[tname]; ok {
 
 		tt, err := ct(b)
@@ -75,6 +83,24 @@ func (r *RegistryStore[T]) Get(tname string, b []byte) (T, error) {
 	//return nil, fmt.Errorf(")
 }
 
-func New[T any](s serde.Serder) *RegistryStore[T] {
-	return &RegistryStore[T]{items: make(map[string]ctor[T]), serder: s}
+func New(s serde.Serder) *typeStore {
+	return &typeStore{items: make(map[string]ctor), Serder: s}
+}
+
+type TypeRegistry interface {
+	serde.Serder
+	TypeExists(tname string) bool
+	GetType(tname string, b []byte) (any, error)
+	Register(item any)
+}
+
+func MetaFromType[T any]() (aname string, bctx string) {
+	t := reflect.TypeFor[T]()
+	if t.Kind() != reflect.Struct {
+		panic("T must be a struct")
+	}
+	aname = t.Name()
+	sep := strings.Split(t.PkgPath(), "/")
+	bctx = sep[len(sep)-1]
+	return
 }

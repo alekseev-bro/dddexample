@@ -1,4 +1,4 @@
-package aggregate
+package domain
 
 // EventError is not saved to the event store.
 type EventError[T any] struct {

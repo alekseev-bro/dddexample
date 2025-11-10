@@ -2,13 +2,14 @@ package esnats
 
 import (
 	"context"
-	"ddd/pkg/aggregate"
+	"ddd/internal/registry"
+	"ddd/internal/serde"
+	"ddd/pkg/domain"
 	"ddd/pkg/store"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
-	"strings"
 	"time"
 
 	"math"
@@ -24,32 +25,25 @@ import (
 // )
 
 type eventStream[T any] struct {
-	aggregate.EventStream[T]
-	//commandRegistry: schema.NewRegistry[Executable[T]](),
+	registry.TypeRegistry
 	tname      string
 	boundedCtx string
 	js         jetstream.JetStream
 }
 
-func metaFromType[T any]() (aname string, bctx string) {
-	t := reflect.TypeFor[T]()
-	if t.Kind() != reflect.Struct {
-		panic("T must be a struct")
-	}
-	aname = t.Name()
-	sep := strings.Split(t.PkgPath(), "/")
-	bctx = sep[len(sep)-1]
-	return
-}
+func NewEventStream[T any](ctx context.Context, js jetstream.JetStream, opts ...option[T]) *eventStream[T] {
+	aname, bcname := registry.MetaFromType[T]()
 
-func NewEventStream[T any](ctx context.Context, js jetstream.JetStream) *eventStream[T] {
-	aname, bcname := metaFromType[T]()
-	stream := &eventStream[T]{js: js, tname: aname, boundedCtx: bcname}
+	stream := &eventStream[T]{js: js, tname: aname, boundedCtx: bcname, TypeRegistry: registry.New(serde.NewDefaultSerder())}
+
+	for _, opt := range opts {
+		opt(stream)
+	}
 
 	_, err := stream.js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Subjects:    []string{stream.allSubjects()},
 		Name:        stream.streamName(),
-		Storage:     jetstream.FileStorage,
+		Storage:     jetstream.MemoryStorage,
 		AllowDirect: true,
 	})
 	if err != nil {
@@ -70,31 +64,43 @@ func (s *eventStream[T]) allSubjects() string {
 	return fmt.Sprintf("%s.*", s.streamName())
 }
 
-func (s *eventStream[T]) Name() string {
-	return s.streamName()
-}
-
-func (s *eventStream[T]) StoreEvent(ctx context.Context, events []aggregate.Envelope[T]) error {
-	for _, event := range events {
-		msg := nats.NewMsg(s.subjectNameForID(string(event.AggrID)))
+func (s *eventStream[T]) Save(ctx context.Context, events []domain.Envelope[T]) error {
+	for _, envel := range events {
+		msg := nats.NewMsg(s.subjectNameForID(string(envel.AggrID)))
 		//msg.Header.Add(eventTypeHeader, event.Type)
 		msg.Header.Add(jetstream.MsgIDHeader, uuid.New().String())
+		b, err := s.Serialize(envel.Event)
+		if err != nil {
+			return fmt.Errorf("command: %w", err)
+		}
 
-		msg.Data = event.Body
+		tname := registry.TypeNameFrom(envel.Event)
+		if !s.TypeExists(tname) {
+			slog.Error("event type not registered", "event", tname)
+			panic(fmt.Errorf("event type not registered: %s", tname))
+		}
+		rec := StoreRecord{Body: b, Kind: tname}
+
+		r, err := s.Serialize(rec)
+		if err != nil {
+			return fmt.Errorf("command: %w", err)
+		}
+
+		msg.Data = r
 		retries := 0
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
-				_, err := s.js.PublishMsg(ctx, msg, jetstream.WithExpectLastSequencePerSubject(event.Version))
+				_, err := s.js.PublishMsg(ctx, msg, jetstream.WithExpectLastSequencePerSubject(envel.Version))
 				if err != nil {
 
 					var seqerr *jetstream.APIError
 
 					if errors.As(err, &seqerr) {
 						if seqerr.ErrorCode == jetstream.JSErrCodeStreamWrongLastSequence {
-							slog.Warn("OCC", "version", event.Version, "name", s.subjectNameForID(string(event.AggrID)))
+							slog.Warn("OCC", "version", envel.Version, "name", s.subjectNameForID(string(envel.AggrID)))
 							retries++
 							if retries > 50 {
 								panic("OCC DeadLock")
@@ -105,7 +111,7 @@ func (s *eventStream[T]) StoreEvent(ctx context.Context, events []aggregate.Enve
 					return fmt.Errorf("store event func: %w", err)
 
 				}
-				slog.Info("EventStored", "subject", s.subjectNameForID(string(event.AggrID)), "stream", s.streamName())
+				slog.Info("event stored", "kind", tname, "subject", s.subjectNameForID(string(envel.AggrID)), "stream", s.streamName())
 				return nil
 			}
 		}
@@ -113,7 +119,12 @@ func (s *eventStream[T]) StoreEvent(ctx context.Context, events []aggregate.Enve
 	return nil
 }
 
-func (s *eventStream[T]) GetEvents(ctx context.Context, id aggregate.ID[T], version uint64, handler func(event []byte) error) (uint64, error) {
+type StoreRecord struct {
+	Body json.RawMessage
+	Kind string
+}
+
+func (s *eventStream[T]) Load(ctx context.Context, id domain.ID[T], version uint64, handler func(event domain.Event[T]) error) (uint64, error) {
 
 	subj := s.subjectNameForID(string(id))
 	msgs, err := jetstreamext.GetBatch(ctx,
@@ -135,15 +146,26 @@ func (s *eventStream[T]) GetEvents(ctx context.Context, id aggregate.ID[T], vers
 		}
 
 		lastevent = msg.Sequence
+		var rec StoreRecord
 
-		if err := handler(msg.Data); err != nil {
+		if err := s.Deserialize(msg.Data, &rec); err != nil {
+
+			return 0, fmt.Errorf("build : %w", err)
+		}
+
+		ev, err := s.GetType(rec.Kind, rec.Body)
+		if err != nil {
+			panic(fmt.Sprintf("event not registered: %s", rec.Kind))
+		}
+
+		if err := handler(ev.(domain.Event[T])); err != nil {
 			return 0, fmt.Errorf("get events: %w", err)
 		}
 	}
 	return lastevent, nil
 }
 
-func (e *eventStream[T]) Subscribe(ctx context.Context, name string, handler func(event []byte) error, ordered bool) {
+func (e *eventStream[T]) Subscribe(ctx context.Context, name string, handler func(event domain.Event[T]) error, ordered bool) {
 	maxpend := 1000
 	if ordered {
 		maxpend = 1
@@ -160,8 +182,16 @@ func (e *eventStream[T]) Subscribe(ctx context.Context, name string, handler fun
 	}
 	ct, err := cons.Consume(func(msg jetstream.Msg) {
 
-		if err := handler(msg.Data()); err != nil {
-			slog.Warn("Redeliver", "error", err)
+		var rec StoreRecord
+		e.Deserialize(msg.Data(), &rec)
+		ev, err := e.GetType(rec.Kind, rec.Body)
+		if err != nil {
+			slog.Error("subscribe type error", "error", err)
+			panic(err)
+		}
+
+		if err := handler(ev.(domain.Event[T])); err != nil {
+			slog.Warn("redelivering", "error", err)
 			msg.NakWithDelay(1 * time.Second)
 			return
 		}

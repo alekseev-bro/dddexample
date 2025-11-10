@@ -1,7 +1,7 @@
 package sales
 
 import (
-	"ddd/pkg/aggregate"
+	"ddd/pkg/domain"
 )
 
 type RentOrderStatus uint8
@@ -13,8 +13,8 @@ const (
 )
 
 type Order struct {
-	aggregate.ID[Order]
-	CustomerID aggregate.ID[Customer]
-	Cars       map[aggregate.ID[Car]]struct{}
+	domain.ID[Order]
+	CustomerID domain.ID[Customer]
+	Cars       map[domain.ID[Car]]struct{}
 	Status     RentOrderStatus
 }

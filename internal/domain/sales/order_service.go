@@ -2,20 +2,20 @@ package sales
 
 import (
 	"context"
-	"ddd/pkg/aggregate"
+	"ddd/pkg/domain"
 )
 
 type OrderService struct {
-	customer Aggregate[Customer]
-	order    Aggregate[Order]
+	customer domain.Aggregate[Customer]
+	order    domain.Aggregate[Order]
 }
 
-func NewOrderService(ctx context.Context, customer Aggregate[Customer], order Aggregate[Order]) *OrderService {
+func NewOrderService(ctx context.Context, customer domain.Aggregate[Customer], order domain.Aggregate[Order]) *OrderService {
 	s := &OrderService{
 		customer: customer,
 		order:    order,
 	}
-	s.customer.Subscribe(ctx, "sales_order_service", func(e aggregate.Event[Customer]) error {
+	s.customer.Subscribe(ctx, "sales_order_service", func(e domain.Event[Customer]) error {
 		switch ev := e.(type) {
 		case *OrderAccepted:
 			return s.order.Command(ctx, ev.OrderID, CloseOrder{OrderID: ev.OrderID})

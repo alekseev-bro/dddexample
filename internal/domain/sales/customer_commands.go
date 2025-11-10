@@ -1,7 +1,7 @@
 package sales
 
 import (
-	"ddd/pkg/aggregate"
+	"ddd/pkg/domain"
 	"fmt"
 )
 
@@ -9,9 +9,9 @@ type CreateCustomer struct {
 	Customer
 }
 
-func (c CreateCustomer) Execute(a *Customer) aggregate.Event[Customer] {
+func (c CreateCustomer) Execute(a *Customer) domain.Event[Customer] {
 	if a != nil {
-		return aggregate.EventError[Customer]{Reason: "customer already exists"}
+		return domain.EventError[Customer]{Reason: "customer already exists"}
 	}
 	//ddd.WithType(CustomerCreated{Customer: c.Customer})
 	return &CustomerCreated{Customer: c.Customer}
@@ -42,10 +42,10 @@ func NewValidateAgeError(age uint) *ValidateAgeError {
 }
 
 type ValidateOrder struct {
-	OrderID aggregate.ID[Order]
+	OrderID domain.ID[Order]
 }
 
-func (v ValidateOrder) Execute(c *Customer) aggregate.Event[Customer] {
+func (v ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
 	if c.Age <= 18 {
 		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age)}
 	}

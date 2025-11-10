@@ -1,8 +1,9 @@
-package esnats
+package snapnats
 
 import (
 	"context"
-	"ddd/pkg/aggregate"
+	"ddd/internal/registry"
+	"ddd/pkg/domain"
 	"ddd/pkg/store"
 	"errors"
 	"fmt"
@@ -17,14 +18,14 @@ type snapshotStore[T any] struct {
 }
 
 func NewSnapshotStore[T any](ctx context.Context, js jetstream.JetStream) *snapshotStore[T] {
-	aname, bname := metaFromType[T]()
+	aname, bname := registry.MetaFromType[T]()
 	store := &snapshotStore[T]{
 		tname:      aname,
 		boundedCtx: bname,
 	}
 	kv, err := js.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket:  store.snapshotBucketName(),
-		Storage: jetstream.FileStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	if err != nil {
 		panic(err)
@@ -38,12 +39,12 @@ func (s *snapshotStore[T]) snapshotBucketName() string {
 	return fmt.Sprintf("snapshot-%s-%s", s.boundedCtx, s.tname)
 }
 
-func (s *snapshotStore[T]) Store(ctx context.Context, id aggregate.ID[T], snap []byte) error {
+func (s *snapshotStore[T]) Save(ctx context.Context, id domain.ID[T], snap []byte) error {
 	_, err := s.kv.Put(ctx, string(id), snap)
 	return err
 }
 
-func (s *snapshotStore[T]) Get(ctx context.Context, id aggregate.ID[T]) ([]byte, error) {
+func (s *snapshotStore[T]) Load(ctx context.Context, id domain.ID[T]) ([]byte, error) {
 	v, err := s.kv.Get(ctx, string(id))
 	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyNotFound) {
