@@ -9,12 +9,16 @@ type CreateCustomer struct {
 	Customer
 }
 
-func (c CreateCustomer) Execute(a *Customer) domain.Event[Customer] {
+func (c *CreateCustomer) Execute(a *Customer) domain.Event[Customer] {
 	if a != nil {
-		return domain.EventError[Customer]{Reason: "customer already exists"}
+		return &domain.EventError[Customer]{Reason: "customer already exists"}
 	}
-	//ddd.WithType(CustomerCreated{Customer: c.Customer})
+
 	return &CustomerCreated{Customer: c.Customer}
+}
+
+func (c *CreateCustomer) AggregateID() domain.ID[Customer] {
+	return c.Customer.ID
 }
 
 type ValidateOrdersError struct {
@@ -42,16 +46,21 @@ func NewValidateAgeError(age uint) *ValidateAgeError {
 }
 
 type ValidateOrder struct {
-	OrderID domain.ID[Order]
+	CustomerID domain.ID[Customer]
+	OrderID    domain.ID[Order]
 }
 
-func (v ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
+func (v *ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
 	if c.Age <= 18 {
-		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age)}
+		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age).Error()}
 	}
 	if c.ActiveOrders >= 3 {
-		return &OrderRejected{OrderID: v.OrderID, Error: ErrMaxOrders}
+		return &OrderRejected{OrderID: v.OrderID, Error: ErrMaxOrders.Error()}
 	}
 
 	return &OrderAccepted{OrderID: v.OrderID}
+}
+
+func (v ValidateOrder) AggregateID() domain.ID[Customer] {
+	return v.CustomerID
 }

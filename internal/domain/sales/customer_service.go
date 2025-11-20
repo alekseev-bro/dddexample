@@ -6,22 +6,14 @@ import (
 )
 
 type CustomerService struct {
-	customer domain.Aggregate[Customer]
-	order    domain.Aggregate[Order]
+	Order domain.Aggregate[Order]
 }
 
-func NewCustomerService(ctx context.Context, customer domain.Aggregate[Customer], order domain.Aggregate[Order]) *CustomerService {
-	s := &CustomerService{
-		customer: customer,
-		order:    order,
-	}
-	s.order.Subscribe(ctx, "sales_customer_service", func(e domain.Event[Order]) error {
-		switch ev := e.(type) {
-		case *OrderCreated:
-			return s.customer.Command(ctx, ev.Order.CustomerID, ValidateOrder{OrderID: ev.Order.ID})
-		}
+func (c *CustomerService) Handle(ctx context.Context, eventID domain.ID[domain.Event[Customer]], e domain.Event[Customer]) error {
+	switch ev := e.(type) {
+	case *OrderAccepted:
+		return c.Order.Command(ctx, eventID.String(), &CloseOrder{OrderID: ev.OrderID})
 
-		return nil
-	}, false)
-	return s
+	}
+	return nil
 }

@@ -2,14 +2,12 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
-	reg "ddd/internal/registry"
 	"ddd/internal/serde"
-
 	"ddd/pkg/store"
 
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -25,20 +23,36 @@ const (
 
 type ID[T any] string
 
+func (i ID[T]) String() string {
+
+	return string(i)
+}
+
 func NewID[T any]() ID[T] {
-	a := uuid.New()
+	a, err := uuid.NewV7()
+	if err != nil {
+		panic(err)
+	}
 	return ID[T](a.String())
 }
 
-type option[T any] func(a *aggregateRoot[T])
+func NewIdempotencyKey[T any](id ID[T], key string) string {
+	i, err := uuid.Parse(string(id))
+	if err != nil {
+		panic(err)
+	}
+	return uuid.NewMD5(i, []byte(key)).String()
+}
+
+type option[T any] func(a *aggregate[T])
 
 func WithSerde[T any](s serde.Serder) option[T] {
-	return func(a *aggregateRoot[T]) {
-		a.typeReg = reg.New(s)
+	return func(a *aggregate[T]) {
+		a.typeRegistry.serder = s
 	}
 }
 
-func NewAggregateRoot[T any](ctx context.Context, es eventStream[T], ss snapshotStore[T], opts ...option[T]) *aggregateRoot[T] {
+func NewAggregate[T any](ctx context.Context, es eventStream[T], ss snapshotStore[T], opts ...option[T]) *aggregate[T] {
 
 	//ent := PT(new(T))
 	// for _, v := range ent.RegisterEvents() {
@@ -52,10 +66,10 @@ func NewAggregateRoot[T any](ctx context.Context, es eventStream[T], ss snapshot
 
 	// }
 
-	aggr := &aggregateRoot[T]{
-		eventStream:   es,
-		snapshotStore: ss,
-		typeReg:       reg.New(serde.NewDefaultSerder()),
+	aggr := &aggregate[T]{
+		es:           es,
+		ss:           ss,
+		typeRegistry: &typeRegistry{items: make(map[string]ctor), serder: serde.NewDefaultSerder()},
 
 		//serder:          &DefaultSerder[T]{},
 	}
@@ -80,65 +94,74 @@ func NewAggregateRoot[T any](ctx context.Context, es eventStream[T], ss snapshot
 	return aggr
 }
 
-type Envelope[T any] struct {
-	AggrID  ID[T]
+type Envelope struct {
+	ID      uuid.UUID
 	Version uint64
-	Event   Event[T]
+	Kind    string
+	Payload []byte
 }
 
-type commander[T any] interface {
-	Command(ctx context.Context, id ID[T], command Command[T]) error
-	CommandFunc(ctx context.Context, id ID[T], command func(*T) Event[T]) error
+type typeGuardGetter interface {
+	guardType(t any)
+	getType(tname string, b []byte) any
 }
-type subscriber[T any] interface {
-	Subscribe(ctx context.Context, name string, handler func(Event[T]) error, ordered bool)
+
+// type typeStore interface {
+// 	serde.Serder
+// 	typeGuardGetter
+// 	registry
+// }
+
+type commander[T any] interface {
+	Command(ctx context.Context, idempotencyKey string, command Command[T]) error
+	// CommandFunc(ctx context.Context, command func(*T) Event[T]) error
+}
+type projector[T any] interface {
+	Project(ctx context.Context, h EventHandler[T], opts ...SubOption)
 }
 
 type Aggregate[T any] interface {
 	commander[T]
-	subscriber[T]
 }
 
 type registry interface {
-	Register(any)
+	register(any)
 }
 
-type eventSaver[T any] interface {
-	Save(ctx context.Context, events []Envelope[T]) error
+type subscriber[T any] interface {
+	Subscribe(ctx context.Context, handler func(envel *Envelope) error, params *SubscribeParams)
 }
 
-type eventLoader[T any] interface {
-	Load(ctx context.Context, aggrID ID[T], fromSeq uint64, handler func(event Event[T]) error) (uint64, error)
+type typesubscriber[T any] interface {
+	subscriber[T]
+	gettyper
 }
+
+type SubOption func(p *SubscribeParams)
 
 type eventStream[T any] interface {
-	registry
-	eventSaver[T]
-	eventLoader[T]
+	Save(ctx context.Context, aggrID string, idempotencyKey string, events []*Envelope) error
+	Load(ctx context.Context, aggrID string, fromSeq uint64, handler func(event *Envelope)) (uint64, error)
 	subscriber[T]
 }
 
-type snapshotSaver[T any] interface {
-	Save(ctx context.Context, aggrID ID[T], snap []byte) error
-}
-
-type snapshotLoader[T any] interface {
-	Load(ctx context.Context, aggrID ID[T]) ([]byte, error)
-}
-
 type snapshotStore[T any] interface {
-	snapshotSaver[T]
-	snapshotLoader[T]
+	Save(ctx context.Context, aggrID string, snap []byte) error
+	Load(ctx context.Context, aggrID string) ([]byte, error)
 }
 
 //	type Registry[T Reducible[T]] interface {
 //		Register(Applyable[T])
 //	}
 
-type aggregateRoot[T any] struct {
-	typeReg reg.TypeRegistry
-	eventStream[T]
-	snapshotStore[T]
+type gettyper interface {
+	getType(tname string, b []byte) any
+}
+
+type aggregate[T any] struct {
+	*typeRegistry
+	es eventStream[T]
+	ss snapshotStore[T]
 }
 
 type snapshot[T any] struct {
@@ -147,9 +170,9 @@ type snapshot[T any] struct {
 	Body     *T
 }
 
-func (a *aggregateRoot[T]) build(ctx context.Context, id ID[T]) (*snapshot[T], error) {
+func (a *aggregate[T]) build(ctx context.Context, id ID[T]) (*snapshot[T], error) {
 
-	var ent T
+	ent := new(T)
 	//var snap Snapshot[T]
 	// rec, err := a.snap.Get(ctx, id)
 	// if err != nil {
@@ -168,46 +191,39 @@ func (a *aggregateRoot[T]) build(ctx context.Context, id ID[T]) (*snapshot[T], e
 
 	var totalMsgs messageCount
 
-	last, err := a.eventStream.Load(ctx, id, 0, func(e Event[T]) error {
+	last, err := a.es.Load(ctx, id.String(), 0, func(e *Envelope) {
 
-		e.Apply(&ent)
+		ev := a.getType(e.Kind, e.Payload)
+
+		ev.(Event[T]).Apply(ent)
 		totalMsgs++
 
-		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("buid %w", err)
 	}
-	sn := &snapshot[T]{Version: last, Body: &ent, MsgCount: totalMsgs}
+	sn := &snapshot[T]{Version: last, Body: ent, MsgCount: totalMsgs}
 
 	return sn, nil
 }
 
-type CommandFunc[T any] func(*T) Event[T]
+// type CommandFunc[T any] func(*T) Event[T]
 
-func (f CommandFunc[T]) Execute(t *T) Event[T] {
-	return f(t)
-}
+// func (f CommandFunc[T]) Execute(t *T) Event[T] {
+// 	return f(t)
+// }
 
-func (a *aggregateRoot[T]) RegisterEvent(event Event[T]) {
+// func (a *aggregate[T]) CommandFunc(ctx context.Context, command func(*T) Event[T]) error {
+// 	return a.Command(ctx, CommandFunc[T](command))
+// }
 
-	a.eventStream.Register(event)
-}
-func (a *aggregateRoot[T]) RegisterCommand(command Command[T]) {
-	a.typeReg.Register(command)
-}
-
-func (a *aggregateRoot[T]) CommandFunc(ctx context.Context, id ID[T], command func(*T) Event[T]) error {
-	return a.Command(ctx, id, CommandFunc[T](command))
-}
-
-func (a *aggregateRoot[T]) Command(ctx context.Context, id ID[T], command Command[T]) error {
+func (a *aggregate[T]) Command(ctx context.Context, idempKey string, command Command[T]) error {
 
 	var err error
 
 	snap := &snapshot[T]{}
 
-	snap, err = a.build(ctx, id)
+	snap, err = a.build(ctx, command.AggregateID())
 	if err != nil {
 		if !errors.Is(err, store.ErrNoAggregate) {
 			return fmt.Errorf("build aggrigate: %w", err)
@@ -217,27 +233,37 @@ func (a *aggregateRoot[T]) Command(ctx context.Context, id ID[T], command Comman
 
 	evt := command.Execute(snap.Body)
 
-	if e, ok := evt.(EventError[T]); ok {
-		return fmt.Errorf("command: %w", e)
+	if _, ok := evt.(*EventError[T]); ok {
+		return nil
 	}
 
-	if err := a.eventStream.Save(ctx, []Envelope[T]{{AggrID: id, Version: snap.Version, Event: evt}}); err != nil {
+	b, err := a.serder.Serialize(evt)
+	if err != nil {
+		slog.Error("command serialize", "error", err)
+		panic(err)
+	}
+
+	// Panics if event isn't registered
+	kind := a.guardType(evt)
+
+	idempotencyKey := NewIdempotencyKey(command.AggregateID(), idempKey)
+	if err := a.es.Save(ctx, command.AggregateID().String(), idempotencyKey, []*Envelope{{Version: snap.Version, Payload: b, Kind: kind}}); err != nil {
 		return fmt.Errorf("command: %w", err)
 	}
 
 	// Save snapshot if aggregate has more than snapshotSize messages
-	if snap != nil {
-		if snap.MsgCount >= snapshotSize {
-			go func() {
-				b, err := a.typeReg.Serialize(snap)
-				if err != nil {
-					slog.Warn(err.Error())
-				}
-				a.snapshotStore.Save(ctx, id, b)
-			}()
+	// if snap != nil {
+	// 	if snap.MsgCount >= snapshotSize {
+	// 		go func() {
+	// 			b, err := a.serder.Serialize(snap)
+	// 			if err != nil {
+	// 				slog.Warn(err.Error())
+	// 			}
+	// 			a.ss.Save(ctx, command.AggregateID(), b)
+	// 		}()
 
-		}
-	}
+	// 	}
+	// }
 
 	return nil
 }

@@ -3,18 +3,16 @@ package sales
 import (
 	"context"
 	"ddd/pkg/domain"
-	"ddd/pkg/store/esnats"
-	"ddd/pkg/store/snapnats"
+	"ddd/pkg/store/natsstore/esnats"
+	"ddd/pkg/store/natsstore/snapnats"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
 type boundedContext struct {
-	Customer        domain.Aggregate[Customer]
-	Order           domain.Aggregate[Order]
-	orderService    *OrderService
-	customerService *CustomerService
+	Customer domain.Aggregate[Customer]
+	Order    domain.Aggregate[Order]
 }
 
 // type MySerder struct {
@@ -48,29 +46,43 @@ func New(ctx context.Context) *boundedContext {
 	if err != nil {
 		panic(err)
 	}
-	custStream := esnats.NewEventStream[Customer](ctx, js)
-	customer := domain.NewAggregateRoot(ctx,
-		custStream,
+
+	customer := domain.NewAggregate[Customer](ctx,
+		esnats.NewEventStream[Customer](ctx, js),
 		snapnats.NewSnapshotStore[Customer](ctx, js),
 	)
+	domain.RegisterEvent[*OrderRejected](customer)
+	domain.RegisterEvent[*CustomerCreated](customer)
+	domain.RegisterEvent[*OrderAccepted](customer)
+	oes := esnats.NewEventStream[Order](ctx, js)
+	order := domain.NewAggregate[Order](ctx, oes,
 
-	domain.RegisterEvent[CustomerCreated](customer)
-	domain.RegisterEvent[OrderAccepted](customer)
-
-	order := domain.NewAggregateRoot[Order](ctx,
-		esnats.NewEventStream[Order](ctx, js),
 		snapnats.NewSnapshotStore[Order](ctx, js),
 	)
 
-	domain.RegisterEvent[OrderCreated](order)
-	domain.RegisterEvent[OrderClosed](order)
-	domain.RegisterEvent[OrderVerified](order)
+	domain.RegisterEvent[*OrderCreated](order)
+	domain.RegisterEvent[*OrderClosed](order)
+	domain.RegisterEvent[*OrderVerified](order)
 
-	c := &boundedContext{
-		Customer:        customer,
-		Order:           order,
-		orderService:    NewOrderService(ctx, customer, order),
-		customerService: NewCustomerService(ctx, customer, order),
+	// order.Project(ctx, &OrderService{
+	// 	Customer: customer,
+	// })
+	customer.Project(ctx, &CustomerService{
+		Order: order,
+	}, domain.WithEventFilter[*OrderAccepted]())
+
+	domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
+		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
+	})
+
+	// 	return nil
+	// })
+	// domain.Subscribe(ctx, order, func(e *OrderClosed) error {
+	// 	return nil
+	// })
+
+	return &boundedContext{
+		Customer: customer,
+		Order:    order,
 	}
-	return c
 }

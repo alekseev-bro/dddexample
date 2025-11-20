@@ -8,15 +8,16 @@ type CustomerCreated struct {
 	Customer Customer
 }
 
-func (cc CustomerCreated) Apply(c *Customer) {
+func (cc *CustomerCreated) Apply(c *Customer) {
 	*c = cc.Customer
 }
 
 type CustomerOrderClosed struct {
-	OrderID domain.ID[Order]
+	CustomerID domain.ID[Customer]
+	OrderID    domain.ID[Order]
 }
 
-func (CustomerOrderClosed) Apply(c *Customer) {
+func (*CustomerOrderClosed) Apply(c *Customer) {
 	c.ActiveOrders--
 
 }
@@ -25,15 +26,16 @@ type OrderAccepted struct {
 	OrderID domain.ID[Order]
 }
 
-func (OrderAccepted) Apply(c *Customer) {
+func (*OrderAccepted) Apply(c *Customer) {
 	c.ActiveOrders++
 }
 
 type OrderRejected struct {
-	OrderID domain.ID[Order]
-	Error   error
+	CustomerID domain.ID[Customer]
+	OrderID    domain.ID[Order]
+	Error      string
 }
 
-func (OrderRejected) Apply(c *Customer) {
+func (*OrderRejected) Apply(c *Customer) {
 
 }

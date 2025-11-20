@@ -13,7 +13,7 @@ const (
 )
 
 type Order struct {
-	domain.ID[Order]
+	ID         domain.ID[Order]
 	CustomerID domain.ID[Customer]
 	Cars       map[domain.ID[Car]]struct{}
 	Status     RentOrderStatus

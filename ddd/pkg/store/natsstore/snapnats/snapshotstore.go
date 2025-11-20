@@ -2,9 +2,8 @@ package snapnats
 
 import (
 	"context"
-	"ddd/internal/registry"
-	"ddd/pkg/domain"
 	"ddd/pkg/store"
+	"ddd/pkg/store/natsstore"
 	"errors"
 	"fmt"
 
@@ -18,7 +17,7 @@ type snapshotStore[T any] struct {
 }
 
 func NewSnapshotStore[T any](ctx context.Context, js jetstream.JetStream) *snapshotStore[T] {
-	aname, bname := registry.MetaFromType[T]()
+	aname, bname := natsstore.MetaFromType[T]()
 	store := &snapshotStore[T]{
 		tname:      aname,
 		boundedCtx: bname,
@@ -39,13 +38,13 @@ func (s *snapshotStore[T]) snapshotBucketName() string {
 	return fmt.Sprintf("snapshot-%s-%s", s.boundedCtx, s.tname)
 }
 
-func (s *snapshotStore[T]) Save(ctx context.Context, id domain.ID[T], snap []byte) error {
-	_, err := s.kv.Put(ctx, string(id), snap)
+func (s *snapshotStore[T]) Save(ctx context.Context, id string, snap []byte) error {
+	_, err := s.kv.Put(ctx, id, snap)
 	return err
 }
 
-func (s *snapshotStore[T]) Load(ctx context.Context, id domain.ID[T]) ([]byte, error) {
-	v, err := s.kv.Get(ctx, string(id))
+func (s *snapshotStore[T]) Load(ctx context.Context, id string) ([]byte, error) {
+	v, err := s.kv.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyNotFound) {
 			return nil, store.ErrNoSnapshot

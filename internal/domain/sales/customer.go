@@ -10,7 +10,7 @@ type Address struct {
 }
 
 type Customer struct {
-	domain.ID[Customer]
+	ID           domain.ID[Customer]
 	Name         string
 	Age          uint
 	Addresses    []Address
