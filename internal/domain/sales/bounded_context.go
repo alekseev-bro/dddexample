@@ -2,10 +2,13 @@ package sales
 
 import (
 	"context"
-	"ddd/pkg/domain"
-	"ddd/pkg/store/natsstore/esnats"
-	"ddd/pkg/store/natsstore/snapnats"
 	"log/slog"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store/natsstore/snapnats"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store/natsstore/esnats"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
 
 	"github.com/nats-io/nats.go/jetstream"
 )

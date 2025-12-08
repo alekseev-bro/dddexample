@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"time"
 
-	reg "ddd/internal/registry"
-	"ddd/internal/serde"
-	"ddd/pkg/store"
 	"fmt"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store"
+
+	"github.com/alekseev-bro/dddexample/ddd/internal/serde"
+
+	reg "github.com/alekseev-bro/dddexample/ddd/internal/registry"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"

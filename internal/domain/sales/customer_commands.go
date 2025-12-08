@@ -1,8 +1,9 @@
 package sales
 
 import (
-	"ddd/pkg/domain"
 	"fmt"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
 )
 
 type CreateCustomer struct {

@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"ddd/pkg/domain"
 	"log/slog"
 
-	"dddexample/internal/domain/sales"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
+
+	"github.com/alekseev-bro/dddexample/internal/domain/sales"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"

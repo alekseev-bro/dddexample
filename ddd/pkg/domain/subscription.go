@@ -2,7 +2,8 @@ package domain
 
 import (
 	"context"
-	reg "ddd/internal/registry"
+
+	reg "github.com/alekseev-bro/dddexample/ddd/internal/registry"
 )
 
 type OrderingType uint

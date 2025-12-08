@@ -1,7 +1,7 @@
 package carpark
 
 import (
-	"ddd/pkg/domain"
+	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
 )
 
 type CarRentRejected struct {

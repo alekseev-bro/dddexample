@@ -1,6 +1,6 @@
 package sales
 
-import "ddd/pkg/domain"
+import "github.com/alekseev-bro/dddexample/ddd/pkg/domain"
 
 type Car struct {
 	domain.ID[Car]

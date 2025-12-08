@@ -2,9 +2,10 @@ package domain
 
 import (
 	"context"
-	reg "ddd/internal/registry"
 	"fmt"
 	"log/slog"
+
+	reg "github.com/alekseev-bro/dddexample/ddd/internal/registry"
 )
 
 type sagaHandlerFunc[E Event[T], C Command[U], T any, U any] func(event E) C

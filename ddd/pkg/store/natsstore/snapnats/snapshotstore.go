@@ -2,10 +2,12 @@ package snapnats
 
 import (
 	"context"
-	"ddd/pkg/store"
-	"ddd/pkg/store/natsstore"
 	"errors"
 	"fmt"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store/natsstore"
 
 	"github.com/nats-io/nats.go/jetstream"
 )

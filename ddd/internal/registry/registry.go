@@ -1,11 +1,12 @@
 package registry
 
 import (
-	"ddd/internal/serde"
 	"fmt"
 	"log/slog"
 	"reflect"
 	"sync"
+
+	"github.com/alekseev-bro/dddexample/ddd/internal/serde"
 )
 
 type ctor func(payload []byte) any

@@ -2,15 +2,17 @@ package esnats
 
 import (
 	"context"
-	"ddd/pkg/domain"
-	"ddd/pkg/store"
-	"ddd/pkg/store/natsstore"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store"
+	"github.com/alekseev-bro/dddexample/ddd/pkg/store/natsstore"
+
+	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
 
 	"math"
 
