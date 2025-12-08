@@ -3,18 +3,16 @@ package sales
 import (
 	"context"
 	"ddd/pkg/domain"
-
-	"github.com/google/uuid"
 )
 
 type OrderService struct {
 	Customer domain.Aggregate[Customer]
 }
 
-func (c *OrderService) Handle(ctx context.Context, eventID uuid.UUID, e domain.Event[Order]) error {
+func (c *OrderService) Handle(ctx context.Context, eventID domain.EventID[Order], e domain.Event[Order]) error {
 	switch ev := e.(type) {
 	case *OrderCreated:
-		return c.Customer.Command(ctx, eventID.String(), &ValidateOrder{OrderID: ev.Order.ID, CustomerID: ev.Order.CustomerID})
+		return c.Customer.Execute(ctx, eventID.String(), &ValidateOrder{OrderID: ev.Order.ID, CustomerID: ev.Order.CustomerID})
 
 	}
 	return nil

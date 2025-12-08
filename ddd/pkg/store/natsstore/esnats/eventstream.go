@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ const (
 )
 
 type eventStream[T any] struct {
+	partnum    uint8
 	tname      string
 	boundedCtx string
 	js         jetstream.JetStream
@@ -42,12 +44,18 @@ func NewEventStream[T any](ctx context.Context, js jetstream.JetStream, opts ...
 		Subjects:    []string{stream.allSubjects()},
 		Name:        stream.streamName(),
 		Storage:     jetstream.MemoryStorage,
-		Duplicates:  1 * time.Hour,
+		Duplicates:  2 * time.Minute,
 		AllowDirect: true,
+		RePublish: &jetstream.RePublish{
+			Source:      stream.allSubjects(),
+			Destination: stream.subscribeSubject(),
+		},
 	})
+
 	if err != nil {
 		panic(err)
 	}
+
 	return stream
 }
 
@@ -64,6 +72,9 @@ func (s *eventStream[T]) streamName() string {
 
 func (s *eventStream[T]) allSubjects() string {
 	return fmt.Sprintf("%s.>", s.streamName())
+}
+func (s *eventStream[T]) subscribeSubject() string {
+	return fmt.Sprintf("sub.%s.>", s.streamName())
 }
 
 func (s *eventStream[T]) Save(ctx context.Context, aggrID string, idempotencyKey string, events []*domain.Envelope) error {
@@ -135,17 +146,49 @@ func (s *eventStream[T]) Load(ctx context.Context, id string, version uint64, ha
 	return lastevent, nil
 }
 
-func (e *eventStream[T]) Subscribe(ctx context.Context, handler func(event *domain.Envelope) error, params *domain.SubscribeParams) {
+type drainAdapter struct {
+	jetstream.ConsumeContext
+}
+
+func (d *drainAdapter) Drain() error {
+	d.ConsumeContext.Drain()
+	return nil
+}
+
+func (e *eventStream[T]) Subscribe(ctx context.Context, handler func(event *domain.Envelope) error, params *domain.SubscribeParams) ([]domain.Drainer, error) {
 
 	maxpend := 1000
-	if params.Ordered {
+	if params.Ordering == domain.Ordered {
 		maxpend = 1
 	}
 	var filter []string
 	if params.Kind != nil {
 		for _, kind := range params.Kind {
-			filter = append(filter, fmt.Sprintf("%s.*.%s", e.streamName(), kind))
+			filter = append(filter, fmt.Sprintf("%s.%s.%s", e.streamName(), params.AggrID(), kind))
 		}
+	} else {
+		filter = append(filter, fmt.Sprintf("%s.%s.%s", e.streamName(), params.AggrID(), "*"))
+	}
+	if params.QoS == domain.AtMostOnce {
+		subs := make([]domain.Drainer, len(filter))
+		for i, f := range filter {
+			sub, err := e.js.Conn().Subscribe(f, func(msg *nats.Msg) {
+				seq, _ := strconv.Atoi(msg.Header.Get("Nats-Sequence"))
+				subjectParts := strings.Split(msg.Subject, ".")
+				handler(&domain.Envelope{
+					ID:      msgID(msg.Header),
+					Kind:    subjectParts[2],
+					Version: uint64(seq),
+					Payload: msg.Data,
+				})
+			})
+			if err != nil {
+				return nil, fmt.Errorf("at most once subscribe: %w", err)
+			}
+			subs[i] = sub
+		}
+
+		return subs, nil
 	}
 	cons, err := e.js.CreateOrUpdateConsumer(ctx, e.streamName(), jetstream.ConsumerConfig{
 		Durable:        params.DurableName,
@@ -184,9 +227,7 @@ func (e *eventStream[T]) Subscribe(ctx context.Context, handler func(event *doma
 	if err != nil {
 		panic(fmt.Errorf("subscription consume: %w", err))
 	}
-	go func() {
-		<-ctx.Done()
-		ct.Drain()
-		fmt.Println("CLOSED")
-	}()
+
+	return []domain.Drainer{&drainAdapter{ConsumeContext: ct}}, nil
+
 }

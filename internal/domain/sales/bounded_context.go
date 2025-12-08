@@ -5,6 +5,7 @@ import (
 	"ddd/pkg/domain"
 	"ddd/pkg/store/natsstore/esnats"
 	"ddd/pkg/store/natsstore/snapnats"
+	"log/slog"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -51,35 +52,44 @@ func New(ctx context.Context) *boundedContext {
 		esnats.NewEventStream[Customer](ctx, js),
 		snapnats.NewSnapshotStore[Customer](ctx, js),
 	)
+
 	domain.RegisterEvent[*OrderRejected](customer)
 	domain.RegisterEvent[*CustomerCreated](customer)
 	domain.RegisterEvent[*OrderAccepted](customer)
 	oes := esnats.NewEventStream[Order](ctx, js)
-	order := domain.NewAggregate[Order](ctx, oes,
+	snap := snapnats.NewSnapshotStore[Order](ctx, js)
 
-		snapnats.NewSnapshotStore[Order](ctx, js),
-	)
+	order := domain.NewAggregate[Order](ctx, oes, snap)
 
 	domain.RegisterEvent[*OrderCreated](order)
 	domain.RegisterEvent[*OrderClosed](order)
 	domain.RegisterEvent[*OrderVerified](order)
 
-	// order.Project(ctx, &OrderService{
-	// 	Customer: customer,
-	// })
-	customer.Project(ctx, &CustomerService{
-		Order: order,
-	}, domain.WithEventFilter[*OrderAccepted]())
+	order.Project(ctx, &OrderService{
+		Customer: customer,
+	})
+	var subs []domain.Drainer
 
-	domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
+	sub, _ := customer.Project(ctx, &CustomerService{
+		Order: order,
+	}, domain.FilterByEvent[*OrderAccepted]())
+
+	subs = append(subs, sub...)
+
+	ss := domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
 		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
 	})
 
-	// 	return nil
-	// })
-	// domain.Subscribe(ctx, order, func(e *OrderClosed) error {
-	// 	return nil
-	// })
+	subs = append(subs, ss)
+
+	go func() {
+		<-ctx.Done()
+		for _, sub := range subs {
+			sub.Drain()
+
+		}
+		slog.Info("all subscriptions drained")
+	}()
 
 	return &boundedContext{
 		Customer: customer,

@@ -8,8 +8,3 @@ type Command[T any] interface {
 type identer[T any] interface {
 	AggregateID() ID[T]
 }
-
-func RegisterCommand[E Command[T], T any](root registry) {
-	var cmd E
-	root.register(cmd)
-}
