@@ -1,6 +1,6 @@
 package sales
 
-import "github.com/alekseev-bro/dddexample/ddd/pkg/domain"
+import "github.com/alekseev-bro/ddd/pkg/domain"
 
 type Address struct {
 	Street string

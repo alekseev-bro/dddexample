@@ -3,7 +3,7 @@ module github.com/alekseev-bro/dddexample
 go 1.25.5
 
 require (
-	github.com/alekseev-bro/dddexample/ddd v0.0.0-00010101000000-000000000000
+	github.com/alekseev-bro/dddexample/ddd v0.0.0-20251208134827-2ab160651d2a
 	github.com/nats-io/nats.go v1.47.0
 )
 

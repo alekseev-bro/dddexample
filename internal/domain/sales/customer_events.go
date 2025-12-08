@@ -1,7 +1,7 @@
 package sales
 
 import (
-	"github.com/alekseev-bro/dddexample/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/domain"
 )
 
 type CustomerCreated struct {

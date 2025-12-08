@@ -1,6 +1,6 @@
 package carpark
 
-import "github.com/alekseev-bro/dddexample/ddd/pkg/domain"
+import "github.com/alekseev-bro/ddd/pkg/domain"
 
 // import (
 // 	"encoding/json"
