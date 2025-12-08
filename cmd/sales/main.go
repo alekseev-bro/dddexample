@@ -3,39 +3,33 @@ package main
 import (
 	"context"
 	"ddd/pkg/domain"
+	"log/slog"
 
 	"dddexample/internal/domain/sales"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
-	//	slog.SetLogLoggerLevel(slog.LevelError)
-	// nc, err := nats.Connect(nats.DefaultURL)
-	// if err != nil {
-	// 	slog.Error("connect to nats", "error", err)
-	// 	panic(err)
-	// }
+	slog.SetLogLoggerLevel(slog.LevelInfo)
 
-	// _, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{Name: "atest", Subjects: []string{"atest.>"}, AllowAtomicPublish: true})
-	// if err != nil {
-	// 	slog.Error("create stream", "error", err)
-	// 	panic(err)
-	// }
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		panic(err)
+	}
+	js, err := jetstream.New(nc)
 
-	// _, err = js.PublishMsg(ctx, m, jetstream.WithExpectLastSequenceForSubject(uint64(0), "atest.t"))
-	// if err != nil {
-	// 	slog.Error("publish message", "error", err)
-	// 	panic(err)
-	// }
-
-	// w.Start()
-
-	s := sales.New(ctx)
+	if err != nil {
+		panic(err)
+	}
+	s := sales.New(ctx, js)
 
 	go func() {
 		for {
@@ -47,7 +41,6 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			// for range 1 {
 
 			ordid := domain.NewID[sales.Order]()
 			idempo := domain.NewIdempotencyKey(ordid, "CreateOrder")

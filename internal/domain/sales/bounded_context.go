@@ -7,7 +7,6 @@ import (
 	"ddd/pkg/store/natsstore/snapnats"
 	"log/slog"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -37,16 +36,7 @@ type boundedContext struct {
 // 	return nil
 // }
 
-func New(ctx context.Context) *boundedContext {
-
-	nc, err := nats.Connect(nats.DefaultURL)
-	if err != nil {
-		panic(err)
-	}
-	js, err := jetstream.New(nc)
-	if err != nil {
-		panic(err)
-	}
+func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 
 	customer := domain.NewAggregate[Customer](ctx,
 		esnats.NewEventStream(ctx, js, esnats.WithInMemory[Customer]()),
