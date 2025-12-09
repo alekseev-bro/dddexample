@@ -52,6 +52,7 @@ type ValidateOrder struct {
 }
 
 func (v *ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
+
 	if c.Age <= 18 {
 		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age).Error()}
 	}

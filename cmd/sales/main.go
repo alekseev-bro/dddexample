@@ -6,7 +6,6 @@ import (
 
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/alekseev-bro/ddd/pkg/domain"
 
@@ -33,28 +32,23 @@ func main() {
 	}
 	s := sales.New(ctx, js)
 
-	go func() {
-		for {
+	cusid := domain.NewID[sales.Customer]()
+	idempc := domain.NewIdempotencyKey(cusid, "CreateCustomer")
 
-			cusid := domain.NewID[sales.Customer]()
-			idempc := domain.NewIdempotencyKey(cusid, "CreateCustomer")
+	err = s.Customer.Execute(ctx, idempc, &sales.CreateCustomer{Customer: sales.Customer{ID: cusid, Name: "John", Age: 20}})
+	if err != nil {
+		panic(err)
+	}
+	for range 20 {
 
-			err := s.Customer.Execute(ctx, idempc, &sales.CreateCustomer{Customer: sales.Customer{ID: cusid, Name: "John", Age: 20}})
-			if err != nil {
-				panic(err)
-			}
+		ordid := domain.NewID[sales.Order]()
+		idempo := domain.NewIdempotencyKey(ordid, "CreateOrder")
 
-			ordid := domain.NewID[sales.Order]()
-			idempo := domain.NewIdempotencyKey(ordid, "CreateOrder")
-
-			err = s.Order.Execute(ctx, idempo, &sales.CreateOrder{OrderID: ordid, CustID: cusid})
-			if err != nil {
-				panic(err)
-			}
-			<-time.After(1 * time.Second)
+		err = s.Order.Execute(ctx, idempo, &sales.CreateOrder{OrderID: ordid, CustID: cusid})
+		if err != nil {
+			panic(err)
 		}
-
-	}()
+	}
 
 	<-ctx.Done()
 

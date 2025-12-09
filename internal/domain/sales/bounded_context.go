@@ -3,6 +3,7 @@ package sales
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/alekseev-bro/ddd/pkg/store/natsstore/snapnats"
 
@@ -41,9 +42,10 @@ type boundedContext struct {
 
 func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 
-	customer := domain.NewAggregate[Customer](ctx,
+	customer := domain.NewAggregate(ctx,
 		esnats.NewEventStream(ctx, js, esnats.WithInMemory[Customer]()),
 		snapnats.NewSnapshotStore(ctx, js, snapnats.WithInMemory[Customer]()),
+		domain.WithSnapshotThreshold[Customer](10, time.Second),
 	)
 
 	domain.RegisterEvent[*OrderRejected](customer)
@@ -52,22 +54,27 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 	oes := esnats.NewEventStream(ctx, js, esnats.WithInMemory[Order]())
 	snap := snapnats.NewSnapshotStore(ctx, js, snapnats.WithInMemory[Order]())
 
-	order := domain.NewAggregate[Order](ctx, oes, snap)
+	order := domain.NewAggregate(ctx, oes, snap, domain.WithSnapshotThreshold[Order](10, time.Second))
 
 	domain.RegisterEvent[*OrderCreated](order)
 	domain.RegisterEvent[*OrderClosed](order)
 	domain.RegisterEvent[*OrderVerified](order)
 
-	order.Project(ctx, &OrderService{
-		Customer: customer,
-	})
 	var subs []domain.Drainer
-
-	sub, _ := customer.Project(ctx, &CustomerService{
-		Order: order,
-	}, domain.FilterByEvent[*OrderAccepted]())
-
-	subs = append(subs, sub...)
+	// sub, err := order.Project(ctx, &OrderService{
+	// 	Customer: customer,
+	// })
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// subs = append(subs, sub)
+	// sub, err := customer.Project(ctx, &CustomerService{
+	// 	Order: order,
+	// }, domain.FilterByEvent[*OrderAccepted]())
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// subs = append(subs, sub)
 
 	ss := domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
 		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
