@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 
 	"os"
 	"os/signal"
@@ -19,7 +18,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
-	slog.SetLogLoggerLevel(slog.LevelInfo)
+	//	slog.SetLogLoggerLevel(slog.LevelWarn)
 
 	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
@@ -33,13 +32,14 @@ func main() {
 	s := sales.New(ctx, js)
 
 	cusid := domain.NewID[sales.Customer]()
+
 	idempc := domain.NewIdempotencyKey(cusid, "CreateCustomer")
 
 	err = s.Customer.Execute(ctx, idempc, &sales.CreateCustomer{Customer: sales.Customer{ID: cusid, Name: "John", Age: 20}})
 	if err != nil {
 		panic(err)
 	}
-	for range 20 {
+	for range 300 {
 
 		ordid := domain.NewID[sales.Order]()
 		idempo := domain.NewIdempotencyKey(ordid, "CreateOrder")

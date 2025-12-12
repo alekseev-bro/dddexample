@@ -61,24 +61,29 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 	domain.RegisterEvent[*OrderVerified](order)
 
 	var subs []domain.Drainer
-	// sub, err := order.Project(ctx, &OrderService{
-	// 	Customer: customer,
-	// })
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// subs = append(subs, sub)
+	sub, err := order.Project(ctx, &OrderService{
+		Customer: customer,
+	})
+	if err != nil {
+		panic(err)
+	}
+	//	subs = append(subs, sub)
 	// sub, err := customer.Project(ctx, &CustomerService{
 	// 	Order: order,
 	// }, domain.FilterByEvent[*OrderAccepted]())
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// subs = append(subs, sub)
+	subs = append(subs, sub)
 
 	ss := domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
+
 		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
 	})
+	// ss1 := domain.Saga(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
+
+	// 	return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
+	// })
 
 	subs = append(subs, ss)
 
@@ -89,6 +94,7 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 
 		}
 		slog.Info("all subscriptions drained")
+
 	}()
 
 	return &boundedContext{

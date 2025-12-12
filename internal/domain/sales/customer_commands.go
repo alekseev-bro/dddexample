@@ -12,6 +12,7 @@ type CreateCustomer struct {
 
 func (c *CreateCustomer) Execute(a *Customer) domain.Event[Customer] {
 	if a != nil {
+
 		return &domain.EventError[Customer]{Reason: "customer already exists"}
 	}
 
