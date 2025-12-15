@@ -63,8 +63,23 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 	domain.RegisterEvent[*OrderClosed]()
 	domain.RegisterEvent[*OrderVerified]()
 
+	bc := &boundedContext{
+		Customer: customer,
+		Order:    order,
+	}
+
+	return bc
+}
+
+func (b *boundedContext) StartOrderCreationSaga(ctx context.Context) {
+	domain.SagaStep(ctx, b.Order, b.Customer, func(e *OrderCreated) *ValidateOrder {
+		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
+	})
+}
+
+func (b *boundedContext) StartProjections(ctx context.Context) {
 	var subs []aggregate.Drainer
-	sub, err := order.Project(ctx, &OrderProjection{
+	sub, err := b.Order.Project(ctx, &OrderProjection{
 		db: NewRamDB(),
 	})
 	if err != nil {
@@ -72,11 +87,6 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 	}
 
 	subs = append(subs, sub)
-
-	domain.SagaStep(ctx, order, customer, func(e *OrderCreated) *ValidateOrder {
-
-		return &ValidateOrder{CustomerID: e.Order.CustomerID, OrderID: e.Order.ID}
-	})
 
 	go func() {
 		<-ctx.Done()
@@ -87,9 +97,4 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 		slog.Info("all subscriptions closed")
 
 	}()
-
-	return &boundedContext{
-		Customer: customer,
-		Order:    order,
-	}
 }

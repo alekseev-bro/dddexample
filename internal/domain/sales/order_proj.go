@@ -40,7 +40,7 @@ type OrderProjection struct {
 func (c *OrderProjection) Handle(ctx context.Context, eventID aggregate.EventID[Order], e aggregate.Event[Order]) error {
 	switch ev := e.(type) {
 	case *OrderCreated:
-		c.db.Set(string(eventID), ev.Order)
+		c.db.Set(eventID.String(), ev.Order)
 	}
 	return nil
 }

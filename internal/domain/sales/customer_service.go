@@ -13,7 +13,7 @@ type CustomerService struct {
 func (c *CustomerService) Handle(ctx context.Context, eventID aggregate.EventID[Customer], e aggregate.Event[Customer]) error {
 	switch ev := e.(type) {
 	case *OrderAccepted:
-		_, err := c.Order.Execute(ctx, string(eventID), &CloseOrder{OrderID: ev.OrderID})
+		_, err := c.Order.Execute(ctx, eventID.String(), &CloseOrder{OrderID: ev.OrderID})
 		return err
 
 	}

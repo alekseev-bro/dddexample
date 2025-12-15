@@ -31,10 +31,12 @@ func main() {
 	}
 
 	s := sales.New(ctx, js)
+	s.StartOrderCreationSaga(ctx)
+	s.StartProjections(ctx)
 
 	cusid := s.Customer.NewID()
 
-	idempc := aggregate.NewIdempotencyKey(cusid, "CreateCustomer")
+	idempc := aggregate.NewUniqueCommandIdempKey[*sales.CreateCustomer](cusid)
 
 	_, err = s.Customer.Execute(ctx, idempc, &sales.CreateCustomer{Customer: sales.Customer{ID: cusid, Name: "John", Age: 20}})
 	if err != nil {
@@ -43,7 +45,7 @@ func main() {
 	for range 300 {
 
 		ordid := s.Order.NewID()
-		idempo := aggregate.NewIdempotencyKey(ordid, "CreateOrder")
+		idempo := aggregate.NewUniqueCommandIdempKey[*sales.CreateOrder](ordid)
 
 		_, err = s.Order.Execute(ctx, idempo, &sales.CreateOrder{OrderID: ordid, CustID: cusid})
 		if err != nil {
