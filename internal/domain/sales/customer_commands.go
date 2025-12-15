@@ -3,23 +3,23 @@ package sales
 import (
 	"fmt"
 
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type CreateCustomer struct {
 	Customer
 }
 
-func (c *CreateCustomer) Execute(a *Customer) domain.Event[Customer] {
+func (c *CreateCustomer) Execute(a *Customer) aggregate.Event[Customer] {
 	if a != nil {
 
-		return &domain.EventError[Customer]{Reason: "customer already exists"}
+		return &aggregate.EventError[Customer]{Reason: "customer already exists"}
 	}
 
 	return &CustomerCreated{Customer: c.Customer}
 }
 
-func (c *CreateCustomer) AggregateID() domain.ID[Customer] {
+func (c *CreateCustomer) AggregateID() aggregate.ID[Customer] {
 	return c.Customer.ID
 }
 
@@ -48,11 +48,11 @@ func NewValidateAgeError(age uint) *ValidateAgeError {
 }
 
 type ValidateOrder struct {
-	CustomerID domain.ID[Customer]
-	OrderID    domain.ID[Order]
+	CustomerID aggregate.ID[Customer]
+	OrderID    aggregate.ID[Order]
 }
 
-func (v *ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
+func (v *ValidateOrder) Execute(c *Customer) aggregate.Event[Customer] {
 
 	if c.Age <= 18 {
 		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age).Error()}
@@ -64,6 +64,6 @@ func (v *ValidateOrder) Execute(c *Customer) domain.Event[Customer] {
 	return &OrderAccepted{OrderID: v.OrderID}
 }
 
-func (v ValidateOrder) AggregateID() domain.ID[Customer] {
+func (v ValidateOrder) AggregateID() aggregate.ID[Customer] {
 	return v.CustomerID
 }

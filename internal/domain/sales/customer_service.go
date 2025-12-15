@@ -3,14 +3,14 @@ package sales
 import (
 	"context"
 
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type CustomerService struct {
-	Order domain.Aggregate[Order]
+	Order aggregate.Aggregate[Order]
 }
 
-func (c *CustomerService) Handle(ctx context.Context, eventID domain.EventID[Customer], e domain.Event[Customer]) error {
+func (c *CustomerService) Handle(ctx context.Context, eventID aggregate.EventID[Customer], e aggregate.Event[Customer]) error {
 	switch ev := e.(type) {
 	case *OrderAccepted:
 		_, err := c.Order.Execute(ctx, string(eventID), &CloseOrder{OrderID: ev.OrderID})

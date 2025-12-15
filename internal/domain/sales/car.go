@@ -1,9 +1,9 @@
 package sales
 
-import "github.com/alekseev-bro/ddd/pkg/domain"
+import "github.com/alekseev-bro/ddd/pkg/aggregate"
 
 type Car struct {
-	domain.ID[Car]
+	aggregate.ID[Car]
 	Make         string
 	Model        string
 	Year         uint

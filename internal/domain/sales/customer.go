@@ -1,6 +1,6 @@
 package sales
 
-import "github.com/alekseev-bro/ddd/pkg/domain"
+import "github.com/alekseev-bro/ddd/pkg/aggregate"
 
 type Address struct {
 	Street string
@@ -10,7 +10,7 @@ type Address struct {
 }
 
 type Customer struct {
-	ID           domain.ID[Customer]
+	ID           aggregate.ID[Customer]
 	Name         string
 	Age          uint
 	Addresses    []Address

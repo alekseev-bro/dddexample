@@ -1,7 +1,7 @@
 package sales
 
 import (
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type CustomerCreated struct {
@@ -13,8 +13,8 @@ func (cc *CustomerCreated) Apply(c *Customer) {
 }
 
 type CustomerOrderClosed struct {
-	CustomerID domain.ID[Customer]
-	OrderID    domain.ID[Order]
+	CustomerID aggregate.ID[Customer]
+	OrderID    aggregate.ID[Order]
 }
 
 func (*CustomerOrderClosed) Apply(c *Customer) {
@@ -23,7 +23,7 @@ func (*CustomerOrderClosed) Apply(c *Customer) {
 }
 
 type OrderAccepted struct {
-	OrderID domain.ID[Order]
+	OrderID aggregate.ID[Order]
 }
 
 func (*OrderAccepted) Apply(c *Customer) {
@@ -31,8 +31,8 @@ func (*OrderAccepted) Apply(c *Customer) {
 }
 
 type OrderRejected struct {
-	CustomerID domain.ID[Customer]
-	OrderID    domain.ID[Order]
+	CustomerID aggregate.ID[Customer]
+	OrderID    aggregate.ID[Order]
 	Error      string
 }
 

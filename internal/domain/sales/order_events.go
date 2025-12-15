@@ -1,7 +1,7 @@
 package sales
 
 import (
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type OrderCreated struct {
@@ -17,8 +17,8 @@ func (ce *OrderCreated) Apply(c *Order) {
 // }
 
 type CarAddedToOrder struct {
-	OrderID domain.ID[Order]
-	CarID   domain.ID[Car]
+	OrderID aggregate.ID[Order]
+	CarID   aggregate.ID[Car]
 }
 
 func (ce *CarAddedToOrder) Apply(c *Order) {
@@ -26,8 +26,8 @@ func (ce *CarAddedToOrder) Apply(c *Order) {
 }
 
 type CarRemovedFromOrder struct {
-	OrderID domain.ID[Order]
-	CarID   domain.ID[Car]
+	OrderID aggregate.ID[Order]
+	CarID   aggregate.ID[Car]
 }
 
 func (ce *CarRemovedFromOrder) Apply(c *Order) {
@@ -35,7 +35,7 @@ func (ce *CarRemovedFromOrder) Apply(c *Order) {
 }
 
 type OrderVerified struct {
-	OrderID domain.ID[Order]
+	OrderID aggregate.ID[Order]
 }
 
 func (ce *OrderVerified) Apply(c *Order) {
@@ -43,8 +43,8 @@ func (ce *OrderVerified) Apply(c *Order) {
 }
 
 type OrderClosed struct {
-	OrderID domain.ID[Order]
-	CustID  domain.ID[Customer]
+	OrderID aggregate.ID[Order]
+	CustID  aggregate.ID[Customer]
 }
 
 func (ce *OrderClosed) Apply(c *Order) {

@@ -5,19 +5,20 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/alekseev-bro/ddd/pkg/domain"
 	"github.com/alekseev-bro/ddd/pkg/saga"
 	"github.com/alekseev-bro/ddd/pkg/store/natsstore/snapnats"
 
 	"github.com/alekseev-bro/ddd/pkg/store/natsstore/esnats"
 
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 
 	"github.com/nats-io/nats.go/jetstream"
 )
 
 type boundedContext struct {
-	Customer domain.Aggregate[Customer]
-	Order    domain.Aggregate[Order]
+	Customer aggregate.Aggregate[Customer]
+	Order    aggregate.Aggregate[Order]
 }
 
 // type MySerder struct {
@@ -43,25 +44,24 @@ type boundedContext struct {
 
 func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 
-	customer := domain.NewAggregate(ctx,
+	customer := aggregate.New[Customer](ctx,
 		esnats.NewEventStream(ctx, js, esnats.WithInMemory[Customer]()),
 		snapnats.NewSnapshotStore(ctx, js, snapnats.WithInMemory[Customer]()),
-		domain.WithSnapshotThreshold[Customer](10, time.Second),
+		aggregate.WithSnapshotThreshold[Customer](10, time.Second),
 	)
 
-	domain.RegisterEvent[*OrderRejected](customer)
-	domain.RegisterEvent[*CustomerCreated](customer)
-	domain.RegisterEvent[*OrderAccepted](customer)
-	oes := esnats.NewEventStream(ctx, js, esnats.WithInMemory[Order]())
-	snap := snapnats.NewSnapshotStore(ctx, js, snapnats.WithInMemory[Order]())
+	domain.RegisterEvent[*OrderRejected]()
+	domain.RegisterEvent[*CustomerCreated]()
+	domain.RegisterEvent[*OrderAccepted]()
 
-	order := domain.NewAggregate(ctx, oes, snap, domain.WithSnapshotThreshold[Order](10, time.Second))
+	order := domain.NewNatsAggregate(ctx, js, domain.WithSnapshotThreshold[Order](10, time.Second), domain.WithInMemory[Order]())
+	//order := aggregate.New(ctx, oes, snap, aggregate.WithSnapshotThreshold[Order](10, time.Second))
 
-	domain.RegisterEvent[*OrderCreated](order)
-	domain.RegisterEvent[*OrderClosed](order)
-	domain.RegisterEvent[*OrderVerified](order)
+	domain.RegisterEvent[*OrderCreated]()
+	domain.RegisterEvent[*OrderClosed]()
+	domain.RegisterEvent[*OrderVerified]()
 
-	var subs []domain.Drainer
+	var subs []aggregate.Drainer
 	sub, err := order.Project(ctx, &OrderProjection{
 		db: NewRamDB(),
 	})

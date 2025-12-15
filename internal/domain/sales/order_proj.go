@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type DB struct {
@@ -37,7 +37,7 @@ type OrderProjection struct {
 	db *DB
 }
 
-func (c *OrderProjection) Handle(ctx context.Context, eventID domain.EventID[Order], e domain.Event[Order]) error {
+func (c *OrderProjection) Handle(ctx context.Context, eventID aggregate.EventID[Order], e aggregate.Event[Order]) error {
 	switch ev := e.(type) {
 	case *OrderCreated:
 		c.db.Set(string(eventID), ev.Order)
