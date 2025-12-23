@@ -34,14 +34,19 @@ func (db *DB) Set(key string, val any) {
 	db.data[key] = val
 }
 
-type OrderProjection struct {
-	db *DB
+type OrderSaga struct {
+	cust domain.Aggregate[Customer]
 }
 
-func (c *OrderProjection) Handle(ctx context.Context, eventID aggregate.EventID[Order], e aggregate.Event[Order]) error {
-	switch ev := e.(type) {
-	case *domain.Created[Order]:
-		c.db.Set(eventID.String(), *ev.Body)
+func (c *OrderSaga) Handle(ctx context.Context, o *Order, eventID aggregate.EventID[Order]) error {
+
+	if err := c.cust.Update(ctx, o.CustomerID, eventID.String(), func(c *Customer) (*Customer, error) {
+		if err := c.AddOrder(); err != nil {
+			return nil, err
+		}
+		return c, nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

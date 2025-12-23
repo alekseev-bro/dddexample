@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"os"
 	"os/signal"
 
-	"github.com/alekseev-bro/ddd/pkg/domain"
 	"github.com/alekseev-bro/dddexample/internal/domain/sales"
 
 	"github.com/nats-io/nats.go"
@@ -31,12 +31,10 @@ func main() {
 
 	s := sales.New(ctx, js)
 	s.StartOrderCreationSaga(ctx)
-	s.StartProjections(ctx)
-	custid := s.Customer.NewID()
-	_, err = s.Customer.Execute(ctx, custid.String(), &domain.Create[sales.Customer]{
-		ID:   custid,
-		Body: &sales.Customer{Name: "dddds", Age: 20},
-	})
+
+	time.Sleep(time.Second)
+	custid, err := s.Customer.Create(ctx, &sales.Customer{Name: "joe", Age: 10})
+
 	if err != nil {
 		panic(err)
 	}
@@ -56,11 +54,7 @@ func main() {
 		// if err != nil {
 		// 	panic(err)
 		// }
-		orid := s.Order.NewID()
-		_, err := s.Order.Execute(ctx, orid.String(), &domain.Create[sales.Order]{
-			ID:   orid,
-			Body: &sales.Order{CustomerID: custid},
-		})
+		_, err := s.Order.Create(ctx, &sales.Order{CustomerID: custid})
 		if err != nil {
 			panic(err)
 		}

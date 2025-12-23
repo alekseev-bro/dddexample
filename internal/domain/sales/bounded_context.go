@@ -2,10 +2,10 @@ package sales
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/alekseev-bro/ddd/pkg/domain"
+	"github.com/alekseev-bro/ddd/pkg/domain/event"
 
 	"github.com/alekseev-bro/ddd/pkg/store/natsstore"
 	"github.com/alekseev-bro/ddd/pkg/store/natsstore/snapnats"
@@ -18,8 +18,8 @@ import (
 )
 
 type boundedContext struct {
-	Customer aggregate.Aggregate[Customer]
-	Order    aggregate.Aggregate[Order]
+	Customer domain.Aggregate[Customer]
+	Order    domain.Aggregate[Order]
 }
 
 // type MySerder struct {
@@ -70,33 +70,11 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 }
 
 func (b *boundedContext) StartOrderCreationSaga(ctx context.Context) {
-	domain.SagaStep(ctx, b.Order, b.Customer, func(e *domain.Created[Order]) *ValidateOrder {
+
+	aggregate.SagaStep(ctx, b.Order.(aggregate.Aggregate[Order]), b.Customer.(aggregate.Aggregate[Customer]), func(e *event.Created[Order]) *ValidateOrder {
 		return &ValidateOrder{CustomerID: e.Body.CustomerID, OrderID: e.ID}
 	})
-	domain.SagaStep(ctx, b.Order, b.Customer, func(e *domain.Created[Order]) *domain.Create[Customer] {
 
-		return &domain.Create[Customer]{ID: b.Customer.NewID(), Body: &Customer{Name: "ddd"}}
-	})
-}
+	b.Order.StartService(ctx, &OrderSaga{b.Customer})
 
-func (b *boundedContext) StartProjections(ctx context.Context) {
-	var subs []aggregate.Drainer
-	sub, err := b.Order.Project(ctx, &OrderProjection{
-		db: NewRamDB(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	subs = append(subs, sub)
-
-	go func() {
-		<-ctx.Done()
-		for _, sub := range subs {
-			sub.Drain()
-
-		}
-		slog.Info("all subscriptions closed")
-
-	}()
 }

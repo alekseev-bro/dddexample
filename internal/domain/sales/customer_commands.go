@@ -52,16 +52,16 @@ type ValidateOrder struct {
 	OrderID    aggregate.ID[Order]
 }
 
-func (v *ValidateOrder) Execute(c *Customer) aggregate.Event[Customer] {
+func (v *ValidateOrder) Execute(c *Customer) (aggregate.Event[Customer], error) {
 
 	if c.Age <= 18 {
-		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age).Error()}
+		return &OrderRejected{OrderID: v.OrderID, Error: NewValidateAgeError(c.Age).Error()}, nil
 	}
 	if c.ActiveOrders >= 3 {
-		return &OrderRejected{OrderID: v.OrderID, Error: ErrMaxOrders.Error()}
+		return &OrderRejected{OrderID: v.OrderID, Error: ErrMaxOrders.Error()}, nil
 	}
 
-	return &OrderAccepted{OrderID: v.OrderID}
+	return &OrderAccepted{OrderID: v.OrderID}, nil
 }
 
 func (v ValidateOrder) AggregateID() aggregate.ID[Customer] {

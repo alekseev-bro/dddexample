@@ -16,4 +16,10 @@ type Order struct {
 	CustomerID aggregate.ID[Customer]
 	Cars       map[aggregate.ID[Car]]struct{}
 	Status     RentOrderStatus
+	Deleted    bool
+}
+
+func (o *Order) Delete() error {
+	o.Deleted = true
+	return nil
 }

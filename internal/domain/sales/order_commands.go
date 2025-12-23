@@ -26,12 +26,12 @@ type CloseOrder struct {
 	CustID  aggregate.ID[Customer]
 }
 
-func (c *CloseOrder) Execute(o *Order) aggregate.Event[Order] {
+func (c *CloseOrder) Execute(o *Order) (aggregate.Event[Order], error) {
 	event := &OrderClosed{
 		OrderID: c.OrderID,
 		CustID:  o.CustomerID,
 	}
-	return event
+	return event, nil
 }
 
 func (c *CloseOrder) AggregateID() aggregate.ID[Order] {
@@ -43,12 +43,12 @@ type AddCarToOrder struct {
 	CarID   aggregate.ID[Car]
 }
 
-func (c *AddCarToOrder) Execute(o *Order) aggregate.Event[Order] {
+func (c *AddCarToOrder) Execute(o *Order) (aggregate.Event[Order], error) {
 	event := &CarAddedToOrder{
 		OrderID: c.OrderID,
 		CarID:   c.CarID,
 	}
-	return event
+	return event, nil
 }
 
 func (c *AddCarToOrder) AggregateID() aggregate.ID[Order] {
