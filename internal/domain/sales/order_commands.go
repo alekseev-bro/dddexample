@@ -18,5 +18,5 @@ func (o *Order) Close() (eventstore.Events[Order], error) {
 func (o *Order) Create(customerID eventstore.ID[Customer]) (eventstore.Events[Order], error) {
 	o.CustomerID = customerID
 	o.Cars = map[eventstore.ID[Car]]struct{}{}
-	return eventstore.NewEvents(OrderCreated{Order: *o}), nil
+	return eventstore.NewEvents(OrderCreated{Order: *o}, OrderVerified{}), nil
 }

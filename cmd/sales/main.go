@@ -34,7 +34,8 @@ func main() {
 	s.StartOrderCreationSaga(ctx)
 
 	time.Sleep(time.Second)
-	custid, err := s.Customer.Create(ctx, s.Customer.NewID(), func(c *sales.Customer) (sales.CustomerEvents, error) {
+	custid := s.CustomerStore.NewID()
+	_, err = s.CustomerStore.Create(ctx, custid, func(c *sales.Customer) (sales.CustomerEvents, error) {
 		return c.Create("Joe", 33)
 	})
 
@@ -57,15 +58,19 @@ func main() {
 		// if err != nil {
 		// 	panic(err)
 		// }
-		oid, err := s.Order.Create(ctx, s.Order.NewID(), func(o *sales.Order) (eventstore.Events[sales.Order], error) {
+		ii := s.OrderStore.NewID()
+		_, err := s.OrderStore.Create(ctx, ii, func(o *sales.Order) (eventstore.Events[sales.Order], error) {
 			return o.Create(custid)
 		})
 		if err != nil {
 			panic(err)
 		}
-		s.Order.Update(ctx, oid, oid.String(), func(o *sales.Order) (eventstore.Events[sales.Order], error) {
+		_, err = s.OrderStore.Update(ctx, ii, "", func(o *sales.Order) (eventstore.Events[sales.Order], error) {
 			return o.Close()
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	<-ctx.Done()

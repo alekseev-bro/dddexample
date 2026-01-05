@@ -30,9 +30,7 @@ func (ce CarRemovedFromOrder) Apply(c *Order) {
 	delete(c.Cars, ce.CarID)
 }
 
-type OrderVerified struct {
-	OrderID eventstore.ID[Order]
-}
+type OrderVerified struct{}
 
 func (ce OrderVerified) Apply(c *Order) {
 	c.Status = ValidForProcessing

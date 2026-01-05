@@ -15,8 +15,8 @@ import (
 )
 
 type boundedContext struct {
-	Customer eventstore.EventStore[Customer]
-	Order    eventstore.EventStore[Order]
+	CustomerStore eventstore.EventStore[Customer]
+	OrderStore    eventstore.EventStore[Order]
 }
 
 // type MySerder struct {
@@ -58,18 +58,19 @@ func New(ctx context.Context, js jetstream.JetStream) *boundedContext {
 		natsstore.WithInMemory[Order](),
 		natsstore.WithEvent[OrderClosed](),
 		natsstore.WithEvent[OrderCreated](),
+		natsstore.WithEvent[OrderVerified](),
 	)
 
 	bc := &boundedContext{
-		Customer: customer,
-		Order:    order,
+		CustomerStore: customer,
+		OrderStore:    order,
 	}
 
 	return bc
 }
 
 func (b *boundedContext) StartOrderCreationSaga(ctx context.Context) {
-	b.Customer.ProjectEvent(ctx, CustomerService{Order: b.Order})
+	b.CustomerStore.ProjectEvent(ctx, CustomerService{Order: b.OrderStore})
 	// aggregate.SagaStep(ctx, b.Order, b.Customer, func(e *event.Created[Order]) *ValidateOrder {
 	// 	return &ValidateOrder{CustomerID: e.Body.CustomerID, OrderID: e.ID}
 	// })
