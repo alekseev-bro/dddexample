@@ -1,6 +1,6 @@
 package carpark
 
-import "github.com/alekseev-bro/ddd/pkg/eventstore"
+import "github.com/alekseev-bro/ddd/pkg/essrv"
 
 // import (
 // 	"encoding/json"
@@ -35,7 +35,7 @@ const (
 )
 
 type Car struct {
-	eventstore.ID[Car]
+	essrv.ID[Car]
 	VIN string
 	CarModel
 	RentState

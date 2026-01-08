@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/alekseev-bro/ddd/pkg/eventstore"
-	"github.com/alekseev-bro/dddexample/internal/domain/sales"
-
+	sales "github.com/alekseev-bro/dddexample/internal/sales/iternal"
+	"github.com/alekseev-bro/dddexample/internal/sales/iternal/domain/customers"
+	"github.com/alekseev-bro/dddexample/internal/sales/iternal/domain/orders"
+	register_customer "github.com/alekseev-bro/dddexample/internal/sales/iternal/features/customer/register_cutomer"
+	"github.com/alekseev-bro/dddexample/internal/sales/iternal/features/order/post_order"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -30,15 +32,18 @@ func main() {
 		panic(err)
 	}
 
-	s := sales.New(ctx, js)
-	s.StartOrderCreationSaga(ctx)
+	s := sales.NewModule(ctx, js)
 
 	time.Sleep(time.Second)
-	custid := s.CustomerStore.NewID()
-	_, err = s.CustomerStore.Create(ctx, custid, func(c *sales.Customer) (sales.CustomerEvents, error) {
-		return c.Create("Joe", 33)
-	})
-
+	custid := s.CustomerService.NewID()
+	cust := &customers.Customer{ID: custid, Name: "Joe", Age: 21}
+	_, err = s.CustomerService.ExecuteUnique(ctx, custid, register_customer.Command{Customer: cust})
+	if err != nil {
+		panic(err)
+	}
+	custid2 := s.CustomerService.NewID()
+	cust2 := &customers.Customer{ID: custid, Name: "Joe", Age: 21}
+	_, err = s.CustomerService.ExecuteUnique(ctx, custid2, register_customer.Command{Customer: cust2})
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +54,7 @@ func main() {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	for range 3 {
+	for range 20 {
 
 		// ordid := s.Order.NewID()
 		// idempo := aggregate.NewUniqueCommandIdempKey[*sales.CreateOrder](ordid)
@@ -58,21 +63,13 @@ func main() {
 		// if err != nil {
 		// 	panic(err)
 		// }
-		ii := s.OrderStore.NewID()
-		_, err := s.OrderStore.Create(ctx, ii, func(o *sales.Order) (eventstore.Events[sales.Order], error) {
-			return o.Create(custid)
-		})
-		if err != nil {
-			panic(err)
-		}
-		_, err = s.OrderStore.Update(ctx, ii, "", func(o *sales.Order) (eventstore.Events[sales.Order], error) {
-			return o.Close()
-		})
+		ordID := s.OrderService.NewID()
+		ord := &orders.Order{ID: ordID, CustomerID: orders.CustomerID(custid)}
+		_, err := s.OrderService.ExecuteUnique(ctx, ordID, post_order.Command{Order: ord})
 		if err != nil {
 			panic(err)
 		}
 	}
-
 	<-ctx.Done()
 
 }

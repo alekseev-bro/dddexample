@@ -1,9 +1,9 @@
-package sales
+package cars
 
-import "github.com/alekseev-bro/ddd/pkg/eventstore"
+import "github.com/alekseev-bro/ddd/pkg/essrv"
 
 type Car struct {
-	eventstore.ID[Car]
+	essrv.ID[Car]
 	Make         string
 	Model        string
 	Year         uint
