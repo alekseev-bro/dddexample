@@ -2,21 +2,19 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"os"
 	"os/signal"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales"
 
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	customercmd "github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer/command"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
 	ordercmd "github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order/command"
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
-
-	"github.com/google/uuid"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -26,7 +24,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
-	//	slog.SetLogLoggerLevel(slog.LevelWarn)
+	slog.SetLogLoggerLevel(slog.LevelInfo)
 
 	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
@@ -39,16 +37,11 @@ func main() {
 	}
 
 	s := sales.NewModule(ctx, js)
-	events.Project(ctx, s.OrderPostedHandler)
 	time.Sleep(time.Second)
-	custid := values.CustomerID(uuid.New())
-	cmdCust := customercmd.Register{
-		ID:   custid,
-		Name: "Joe",
-		Age:  16,
-	}
-
-	err = s.RegisterCustomer.Handle(ctx, events.ID[customer.Customer](custid), cmdCust, custid.String())
+	c := customer.New("Joe", 16, nil)
+	cmdCust := customercmd.Register{Customer: c}
+	ctxIdemp := aggregate.ContextWithIdempotancyKey(ctx, c.ID.String())
+	_, err = s.RegisterCustomer.Handle(ctxIdemp, cmdCust)
 	if err != nil {
 		panic(err)
 	}
@@ -68,16 +61,18 @@ func main() {
 		// if err != nil {
 		// 	panic(err)
 		// }
-		ordID := values.OrderID(uuid.New())
+		o := order.New(aggregate.NewID(), c.ID, nil)
 		ordCmd := ordercmd.Post{
-			ID:         ordID,
-			CustomerID: custid,
+			Order: o,
 		}
-		err = s.PostOrder.Handle(ctx, events.ID[order.Order](ordID), ordCmd, ordID.String())
+		ctxIdemp := aggregate.ContextWithIdempotancyKey(ctx, o.ID.String())
+
+		_, err = s.PostOrder.Handle(ctxIdemp, ordCmd)
 		if err != nil {
 			panic(err)
 		}
 	}
+
 	<-ctx.Done()
 
 }

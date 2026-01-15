@@ -3,30 +3,29 @@ package order
 import (
 	"slices"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
 type Posted struct {
-	ID         values.OrderID
-	CustomerID values.CustomerID
+	OrderID    aggregate.ID
+	CustomerID aggregate.ID
 	Cars       []OrderLine
 	Status     RentOrderStatus
-	Deleted    bool
 }
 
 func (ce Posted) Evolve(c *Order) {
-	c.ID = ce.ID
+	c.Exists = true
+	c.ID = ce.OrderID
 	c.Cars = ce.Cars
 	c.CustomerID = ce.CustomerID
 	c.Status = ce.Status
-	c.Deleted = ce.Deleted
 
 }
 
 type CarAdded struct {
-	OrderID  values.OrderID
-	CarID    values.CarID
+	OrderID  aggregate.ID
+	CarID    aggregate.ID
 	Price    values.Money
 	Quantity uint
 }
@@ -36,8 +35,8 @@ func (ce *CarAdded) Evolve(c *Order) {
 }
 
 type CarRemoved struct {
-	OrderID values.OrderID
-	CarID   values.CarID
+	OrderID aggregate.ID
+	CarID   aggregate.ID
 }
 
 func (ce CarRemoved) Evolve(c *Order) {
@@ -45,7 +44,7 @@ func (ce CarRemoved) Evolve(c *Order) {
 }
 
 type Verified struct {
-	OrderID events.ID[Order]
+	OrderID aggregate.ID
 }
 
 func (ce Verified) Evolve(c *Order) {

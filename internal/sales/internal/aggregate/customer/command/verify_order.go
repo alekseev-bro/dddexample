@@ -3,46 +3,45 @@ package command
 import (
 	"context"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
-type verifyOrder struct {
-	OrderID values.OrderID
+type VerifyOrder struct {
+	OfCustomer aggregate.ID
+	OrderID    aggregate.ID
+}
+
+func (cmd VerifyOrder) Execute(c *customer.Customer) (aggregate.Events[customer.Customer], error) {
+	return c.VerifyOrder(cmd.OrderID)
 }
 
 type verifyOrderHandler struct {
-	Customers events.Executer[customer.Customer]
+	Customers aggregate.Updater[customer.Customer, *customer.Customer]
 }
 
-func NewVerifyOrderHandler(repo events.Executer[customer.Customer]) *verifyOrderHandler {
+func NewVerifyOrderHandler(repo aggregate.Updater[customer.Customer, *customer.Customer]) *verifyOrderHandler {
 	return &verifyOrderHandler{Customers: repo}
 }
 
-func (h *verifyOrderHandler) Handle(ctx context.Context, id events.ID[customer.Customer], cmd verifyOrder, idempotencyKey string) error {
-	_, err := h.Customers.Execute(ctx, id, func(c *customer.Customer) (events.Events[customer.Customer], error) {
-		return c.VerifyOrder(cmd.OrderID)
-	}, idempotencyKey)
-	return err
+func (h *verifyOrderHandler) Handle(ctx context.Context, cmd VerifyOrder) ([]*aggregate.Event[customer.Customer], error) {
+	return h.Customers.Update(ctx, cmd.OfCustomer, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
+		return state.VerifyOrder(cmd.OrderID)
+	})
 }
 
-func NewOrderPostedHandler(handler aggregate.CommandHandler[customer.Customer, verifyOrder]) *orderPostedHandler {
+func NewOrderPostedHandler(handler aggregate.CommandHandler[customer.Customer, VerifyOrder]) *orderPostedHandler {
 	return &orderPostedHandler{handler: handler}
 }
 
 type orderPostedHandler struct {
-	handler aggregate.CommandHandler[customer.Customer, verifyOrder]
+	handler aggregate.CommandHandler[customer.Customer, VerifyOrder]
 }
 
-func (h *orderPostedHandler) Handle(ctx context.Context, eventID string, e order.Posted) error {
-	return h.handler.Handle(
-		ctx,
-		events.ID[customer.Customer](e.CustomerID),
-		verifyOrder{OrderID: e.ID},
-		eventID,
-	)
+func (h *orderPostedHandler) HandleEvent(ctx context.Context, e order.Posted) error {
+	cmd := VerifyOrder{OfCustomer: e.CustomerID, OrderID: e.OrderID}
+	_, err := h.handler.Handle(ctx, cmd)
+	return err
 }

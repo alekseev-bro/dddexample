@@ -3,41 +3,45 @@ package command
 import (
 	"context"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
 )
 
-type close struct {
+type Close struct {
+	OrderID aggregate.ID
+}
+
+func (cmd Close) Execute(o *order.Order) (aggregate.Events[order.Order], error) {
+	return o.Close()
 }
 
 type closeOrderHandler struct {
-	Orders events.Executer[order.Order]
+	Orders aggregate.Updater[order.Order, *order.Order]
 }
 
-func NewCloseOrderHandler(repo events.Executer[order.Order]) *closeOrderHandler {
+func NewCloseOrderHandler(repo aggregate.Updater[order.Order, *order.Order]) *closeOrderHandler {
 	return &closeOrderHandler{Orders: repo}
 }
 
-func (h *closeOrderHandler) Handle(ctx context.Context, id events.ID[order.Order], cmd close, idempotencyKey string) error {
-	_, err := h.Orders.Execute(ctx, id, func(aggr *order.Order) (events.Events[order.Order], error) {
-		return aggr.CloseOrder()
-	}, idempotencyKey)
-	return err
+func (h *closeOrderHandler) Handle(ctx context.Context, cmd Close) ([]*aggregate.Event[order.Order], error) {
+
+	return h.Orders.Update(ctx, cmd.OrderID, func(state *order.Order) (aggregate.Events[order.Order], error) {
+		return state.Close()
+	})
 }
 
 type orderRejectedHandler struct {
-	Repo events.Store[order.Order]
+	CloseOrderHandler aggregate.CommandHandler[order.Order, Close]
 }
 
-func NewOrderRejectedHandler(repo events.Store[order.Order]) *orderRejectedHandler {
+func NewOrderRejectedHandler(h aggregate.CommandHandler[order.Order, Close]) *orderRejectedHandler {
 
-	return &orderRejectedHandler{Repo: repo}
+	return &orderRejectedHandler{CloseOrderHandler: h}
 }
 
-func (h *orderRejectedHandler) Handle(ctx context.Context, eventID string, e customer.OrderRejected) error {
-	_, err := h.Repo.Execute(ctx, events.ID[order.Order](e.OrderID), func(aggr *order.Order) (events.Events[order.Order], error) {
-		return aggr.CloseOrder()
-	}, eventID)
+func (h *orderRejectedHandler) HandleEvent(ctx context.Context, e customer.OrderRejected) error {
+	cmd := Close{OrderID: e.OrderID}
+	_, err := h.CloseOrderHandler.Handle(ctx, cmd)
 	return err
 }

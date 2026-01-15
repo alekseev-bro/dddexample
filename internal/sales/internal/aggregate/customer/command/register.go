@@ -3,40 +3,30 @@ package command
 import (
 	"context"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
 type Register struct {
-	ID           values.CustomerID
-	Name         string
-	Age          uint
-	Addresses    []customer.Address
-	ActiveOrders uint
+	Customer *customer.Customer
+}
+
+func (cmd Register) Execute(c *customer.Customer) (aggregate.Events[customer.Customer], error) {
+	return cmd.Customer.Register()
 }
 
 type registerHandler struct {
-	Customers events.Store[customer.Customer]
+	Customers aggregate.Updater[customer.Customer, *customer.Customer]
 }
 
-func NewRegisterHandler(repo events.Store[customer.Customer]) *registerHandler {
+func NewRegisterHandler(repo aggregate.Updater[customer.Customer, *customer.Customer]) *registerHandler {
 	return &registerHandler{Customers: repo}
 }
 
-func (h *registerHandler) Handle(ctx context.Context, id events.ID[customer.Customer], cmd Register, idempotencyKey string) error {
-	_, err := h.Customers.Execute(ctx, id, func(aggr *customer.Customer) (events.Events[customer.Customer], error) {
+func (h *registerHandler) Handle(ctx context.Context, cmd Register) ([]*aggregate.Event[customer.Customer], error) {
 
-		aggr = &customer.Customer{
-			ID:           cmd.ID,
-			Name:         cmd.Name,
-			Age:          cmd.Age,
-			Addresses:    cmd.Addresses,
-			ActiveOrders: cmd.ActiveOrders,
-		}
-		return aggr.Register()
-
-	}, idempotencyKey)
-	return err
+	return h.Customers.Update(ctx, cmd.Customer.ID, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
+		return state.Register()
+	})
 }

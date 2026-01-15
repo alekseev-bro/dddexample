@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
 type OrderListProjection struct {
-	ID        values.OrderID
+	ID        aggregate.ID
 	Total     values.Money
 	CreatedAt time.Time
 	UserName  string

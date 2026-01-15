@@ -3,35 +3,25 @@ package command
 import (
 	"context"
 
-	"github.com/alekseev-bro/ddd/pkg/events"
-
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
 type Post struct {
-	ID         values.OrderID
-	CustomerID values.CustomerID
-	Cars       []order.OrderLine
+	Order *order.Order
 }
 
 type postOrderHandler struct {
-	Orders events.Executer[order.Order]
+	Orders aggregate.Updater[order.Order, *order.Order]
 }
 
-func NewPostOrderHandler(repo events.Store[order.Order]) *postOrderHandler {
+func NewPostOrderHandler(repo aggregate.Updater[order.Order, *order.Order]) *postOrderHandler {
 	return &postOrderHandler{Orders: repo}
 }
 
-func (h *postOrderHandler) Handle(ctx context.Context, id events.ID[order.Order], cmd Post, idempotencyKey string) error {
-	_, err := h.Orders.Execute(ctx, id, func(aggr *order.Order) (events.Events[order.Order], error) {
+func (h *postOrderHandler) Handle(ctx context.Context, cmd Post) ([]*aggregate.Event[order.Order], error) {
 
-		aggr = &order.Order{
-			ID:         cmd.ID,
-			CustomerID: cmd.CustomerID,
-			Cars:       cmd.Cars,
-		}
-		return aggr.Post()
-	}, idempotencyKey)
-	return err
+	return h.Orders.Update(ctx, cmd.Order.ID, func(state *order.Order) (aggregate.Events[order.Order], error) {
+		return state.Post(cmd.Order)
+	})
 }

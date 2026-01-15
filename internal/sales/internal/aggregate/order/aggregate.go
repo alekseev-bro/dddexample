@@ -1,33 +1,43 @@
 package order
 
 import (
-	"github.com/alekseev-bro/ddd/pkg/events"
-	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
+	"errors"
+
+	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
 type Order struct {
-	ID         values.OrderID
-	CustomerID values.CustomerID
+	aggregate.Aggregate
+	CustomerID aggregate.ID
 	Cars       []OrderLine
 	Status     RentOrderStatus
-	Deleted    bool
 }
 
-func (o *Order) Post() (events.Events[Order], error) {
+func New(id, customerID aggregate.ID, cars []OrderLine) *Order {
+	o := &Order{
+		CustomerID: customerID,
+		Cars:       cars,
+	}
+	o.ID = id
+	return o
+}
 
-	return events.New(Posted{
-		ID:         o.ID,
-		CustomerID: o.CustomerID,
-		Cars:       o.Cars,
-		Status:     o.Status,
-		Deleted:    o.Deleted,
+func (o *Order) Post(ord *Order) (aggregate.Events[Order], error) {
+	if o.Exists {
+		return nil, errors.New("order exists")
+	}
+	return aggregate.NewEvents(Posted{
+		OrderID:    ord.ID,
+		CustomerID: ord.CustomerID,
+		Cars:       ord.Cars,
+		Status:     ord.Status,
 	}), nil
 
 }
 
-func (o *Order) CloseOrder() (events.Events[Order], error) {
+func (o *Order) Close() (aggregate.Events[Order], error) {
 	if o.Status != StatusClosed {
-		return events.New(Closed{}), nil
+		return aggregate.NewEvents(Closed{}), nil
 	}
 	return nil, nil
 }
