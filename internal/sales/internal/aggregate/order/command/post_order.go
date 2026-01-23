@@ -12,16 +12,16 @@ type Post struct {
 }
 
 type postOrderHandler struct {
-	Orders OrderUpdater
+	Orders orderMutator
 }
 
-func NewPostOrderHandler(repo OrderUpdater) *postOrderHandler {
+func NewPostOrderHandler(repo orderMutator) *postOrderHandler {
 	return &postOrderHandler{Orders: repo}
 }
 
 func (h *postOrderHandler) HandleCommand(ctx context.Context, cmd Post) ([]*aggregate.Event[order.Order], error) {
 
-	return h.Orders.Update(ctx, cmd.Order.ID, func(state *order.Order) (aggregate.Events[order.Order], error) {
+	return h.Orders.Mutate(ctx, cmd.Order.ID, func(state *order.Order) (aggregate.Events[order.Order], error) {
 		return state.Post(cmd.Order)
 	})
 }

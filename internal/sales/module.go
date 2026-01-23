@@ -20,8 +20,8 @@ import (
 )
 
 type Module struct {
-	RegisterCustomer customercmd.CustomerRegisterHandler
-	PostOrder        ordercmd.OrderpostHandler
+	RegisterCustomer aggregate.CommandHandler[customer.Customer, customercmd.Register]
+	PostOrder        aggregate.CommandHandler[order.Order, ordercmd.Post]
 	OrderStream      aggregate.Subscriber[order.Order]
 	CustomerStream   aggregate.Subscriber[customer.Customer]
 	OrderProjection  orderquery.AllLister

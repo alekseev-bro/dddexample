@@ -14,21 +14,17 @@ type VerifyOrder struct {
 	OrderID    aggregate.ID
 }
 
-type CustomerUpdater interface {
-	Update(ctx context.Context, id aggregate.ID, modify func(state *customer.Customer) (aggregate.Events[customer.Customer], error)) ([]*aggregate.Event[customer.Customer], error)
-}
-
 type verifyOrderHandler struct {
-	Customers CustomerUpdater
+	Customers customerMutator
 }
 
-func NewVerifyOrderHandler(repo CustomerUpdater) *verifyOrderHandler {
+func NewVerifyOrderHandler(repo customerMutator) *verifyOrderHandler {
 	return &verifyOrderHandler{Customers: repo}
 }
 
 func (h *verifyOrderHandler) HandleCommand(ctx context.Context, cmd VerifyOrder) ([]*aggregate.Event[customer.Customer], error) {
 
-	return h.Customers.Update(ctx, cmd.OfCustomer, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
+	return h.Customers.Mutate(ctx, cmd.OfCustomer, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
 		return state.VerifyOrder(cmd.OrderID)
 	})
 }

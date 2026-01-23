@@ -1,8 +1,6 @@
 package order
 
 import (
-	"fmt"
-
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
@@ -23,7 +21,6 @@ func (l OrderLines) Total() (values.Money, error) {
 			total = line.Total()
 			continue
 		}
-		fmt.Printf("line.Total(): %v\n", line.Total())
 		total, err = total.Add(line.Total())
 
 		if err != nil {

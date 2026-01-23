@@ -5,4 +5,4 @@ import (
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 )
 
-type CustomerRegisterHandler aggregate.CommandHandler[customer.Customer, Register]
+type customerMutator aggregate.Mutator[customer.Customer, *customer.Customer]

@@ -13,20 +13,16 @@ type Register struct {
 }
 
 type registerHandler struct {
-	Customers RegisterHandler
+	Customers customerMutator
 }
 
-type RegisterHandler interface {
-	Update(ctx context.Context, id aggregate.ID, modify func(state *customer.Customer) (aggregate.Events[customer.Customer], error)) ([]*aggregate.Event[customer.Customer], error)
-}
-
-func NewRegisterHandler(repo RegisterHandler) *registerHandler {
+func NewRegisterHandler(repo customerMutator) *registerHandler {
 	return &registerHandler{Customers: repo}
 }
 
 func (h *registerHandler) HandleCommand(ctx context.Context, cmd Register) ([]*aggregate.Event[customer.Customer], error) {
 
-	return h.Customers.Update(ctx, cmd.Customer.ID, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
+	return h.Customers.Mutate(ctx, cmd.Customer.ID, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
 		return state.Register(cmd.Customer)
 	})
 }

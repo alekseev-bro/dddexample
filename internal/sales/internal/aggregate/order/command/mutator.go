@@ -5,4 +5,4 @@ import (
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
 )
 
-type OrderpostHandler aggregate.CommandHandler[order.Order, Post]
+type orderMutator aggregate.Mutator[order.Order, *order.Order]

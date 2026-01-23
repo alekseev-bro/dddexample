@@ -13,20 +13,16 @@ type Close struct {
 }
 
 type closeOrderHandler struct {
-	Orders OrderUpdater
+	Orders orderMutator
 }
 
-type OrderUpdater interface {
-	Update(ctx context.Context, id aggregate.ID, modify func(state *order.Order) (aggregate.Events[order.Order], error)) ([]*aggregate.Event[order.Order], error)
-}
-
-func NewCloseOrderHandler(repo OrderUpdater) *closeOrderHandler {
+func NewCloseOrderHandler(repo orderMutator) *closeOrderHandler {
 	return &closeOrderHandler{Orders: repo}
 }
 
 func (h *closeOrderHandler) HandleCommand(ctx context.Context, cmd Close) ([]*aggregate.Event[order.Order], error) {
 
-	return h.Orders.Update(ctx, cmd.OrderID, func(state *order.Order) (aggregate.Events[order.Order], error) {
+	return h.Orders.Mutate(ctx, cmd.OrderID, func(state *order.Order) (aggregate.Events[order.Order], error) {
 		return state.Close()
 	})
 }
