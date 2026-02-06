@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
+	"github.com/alekseev-bro/ddd/pkg/eventstore"
+	"github.com/alekseev-bro/ddd/pkg/stream"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
 )
@@ -20,7 +22,7 @@ func NewCloseOrderHandler(repo orderMutator) *closeOrderHandler {
 	return &closeOrderHandler{Orders: repo}
 }
 
-func (h *closeOrderHandler) HandleCommand(ctx context.Context, cmd Close) ([]*aggregate.Event[order.Order], error) {
+func (h *closeOrderHandler) HandleCommand(ctx context.Context, cmd Close) ([]stream.MsgMetadata, error) {
 
 	return h.Orders.Mutate(ctx, cmd.OrderID, func(state *order.Order) (aggregate.Events[order.Order], error) {
 		return state.Close()
@@ -28,10 +30,10 @@ func (h *closeOrderHandler) HandleCommand(ctx context.Context, cmd Close) ([]*ag
 }
 
 type orderRejectedHandler struct {
-	CloseOrderHandler aggregate.CommandHandler[order.Order, Close]
+	CloseOrderHandler eventstore.CommandHandler[order.Order, Close]
 }
 
-func NewOrderRejectedHandler(h aggregate.CommandHandler[order.Order, Close]) *orderRejectedHandler {
+func NewOrderRejectedHandler(h eventstore.CommandHandler[order.Order, Close]) *orderRejectedHandler {
 
 	return &orderRejectedHandler{CloseOrderHandler: h}
 }

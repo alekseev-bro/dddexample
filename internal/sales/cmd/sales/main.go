@@ -42,8 +42,7 @@ func main() {
 	time.Sleep(time.Second)
 	c := customer.New("Joe", 16, nil)
 	cmdCust := customercmd.Register{Customer: c}
-	ctxIdemp := aggregate.ContextWithIdempotancyKey(ctx, c.ID.String())
-	_, err = s.RegisterCustomer.HandleCommand(ctxIdemp, cmdCust)
+	_, err = s.RegisterCustomer.HandleCommand(ctx, cmdCust)
 	if err != nil {
 		panic(err)
 	}
@@ -65,15 +64,14 @@ func main() {
 		ordCmd := ordercmd.Post{
 			Order: o,
 		}
-		ctxIdemp := aggregate.ContextWithIdempotancyKey(ctx, o.ID.String())
 
-		_, err = s.PostOrder.HandleCommand(ctxIdemp, ordCmd)
+		_, err = s.PostOrder.HandleCommand(ctx, ordCmd)
 		if err != nil {
 			panic(err)
 		}
 	}
 	<-time.After(time.Second * 2)
-	l, err := s.OrderProjection.ListAll()
+	l, err := s.OrderProjection.ListOrders()
 	if err != nil {
 		panic(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
+	"github.com/alekseev-bro/ddd/pkg/stream"
 
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
@@ -22,15 +23,14 @@ func NewVerifyOrderHandler(repo customerMutator) *verifyOrderHandler {
 	return &verifyOrderHandler{Customers: repo}
 }
 
-func (h *verifyOrderHandler) HandleCommand(ctx context.Context, cmd VerifyOrder) ([]*aggregate.Event[customer.Customer], error) {
-
+func (h *verifyOrderHandler) HandleCommand(ctx context.Context, cmd VerifyOrder) ([]stream.MsgMetadata, error) {
 	return h.Customers.Mutate(ctx, cmd.OfCustomer, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
 		return state.VerifyOrder(cmd.OrderID)
 	})
 }
 
 type VerifyOrderHandler interface {
-	HandleCommand(ctx context.Context, cmd VerifyOrder) ([]*aggregate.Event[customer.Customer], error)
+	HandleCommand(ctx context.Context, cmd VerifyOrder) ([]stream.MsgMetadata, error)
 }
 
 func NewOrderPostedHandler(handler VerifyOrderHandler) *orderPostedHandler {

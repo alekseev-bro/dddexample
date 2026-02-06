@@ -2,8 +2,10 @@ package customer
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
+	"github.com/alekseev-bro/ddd/pkg/eventstore"
 )
 
 type Customer struct {
@@ -16,8 +18,10 @@ type Customer struct {
 }
 
 func New(name string, age uint, addresses []Address) *Customer {
+	id := aggregate.NewID()
+	fmt.Printf("id_customer: %v\n", id)
 	return &Customer{
-		ID:        aggregate.NewID(),
+		ID:        id,
 		Name:      name,
 		Age:       age,
 		Addresses: addresses,
@@ -27,7 +31,7 @@ func New(name string, age uint, addresses []Address) *Customer {
 
 func (c *Customer) Register(cust *Customer) (aggregate.Events[Customer], error) {
 	if c.Exists {
-		return nil, aggregate.ErrAggregateAlreadyExists
+		return nil, eventstore.ErrAggregateAlreadyExists
 	}
 	return aggregate.NewEvents(&Registered{
 		CustomerID:   cust.ID,

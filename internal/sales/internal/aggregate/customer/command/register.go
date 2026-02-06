@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
+	"github.com/alekseev-bro/ddd/pkg/stream"
 
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 )
@@ -20,7 +21,7 @@ func NewRegisterHandler(repo customerMutator) *registerHandler {
 	return &registerHandler{Customers: repo}
 }
 
-func (h *registerHandler) HandleCommand(ctx context.Context, cmd Register) ([]*aggregate.Event[customer.Customer], error) {
+func (h *registerHandler) HandleCommand(ctx context.Context, cmd Register) ([]stream.MsgMetadata, error) {
 
 	return h.Customers.Mutate(ctx, cmd.Customer.ID, func(state *customer.Customer) (aggregate.Events[customer.Customer], error) {
 		return state.Register(cmd.Customer)

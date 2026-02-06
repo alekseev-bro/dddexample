@@ -5,7 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/alekseev-bro/ddd/pkg/aggregate"
+	"github.com/alekseev-bro/ddd/pkg/eventstore"
+	"github.com/alekseev-bro/ddd/pkg/stream"
 
 	"github.com/alekseev-bro/ddd/pkg/natsstore"
 
@@ -19,17 +20,21 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+type Projector interface {
+	Project(any) error
+}
+
 type Module struct {
-	RegisterCustomer aggregate.CommandHandler[customer.Customer, customercmd.Register]
-	PostOrder        aggregate.CommandHandler[order.Order, ordercmd.Post]
-	OrderStream      aggregate.Subscriber[order.Order]
-	CustomerStream   aggregate.Subscriber[customer.Customer]
-	OrderProjection  orderquery.AllLister
+	RegisterCustomer eventstore.CommandHandler[customer.Customer, customercmd.Register]
+	PostOrder        eventstore.CommandHandler[order.Order, ordercmd.Post]
+	OrderStream      eventstore.Subscriber[order.Order]
+	CustomerStream   eventstore.Subscriber[customer.Customer]
+	OrderProjection  orderquery.OrdersLister
 }
 
 func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
-	var cons []aggregate.Drainer
-	cust := natsstore.NewStore(ctx, js,
+	var cons []stream.Drainer
+	cust := natsstore.New(ctx, js,
 		natsstore.WithInMemory[customer.Customer](),
 		natsstore.WithSnapshot[customer.Customer](5, time.Second),
 		natsstore.WithEvent[customer.OrderRejected, customer.Customer]("OrderRejected"),
@@ -37,7 +42,7 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 		natsstore.WithEvent[customer.Registered, customer.Customer]("CustomerRegistered"),
 	)
 
-	ord := natsstore.NewStore(ctx, js,
+	ord := natsstore.New(ctx, js,
 		natsstore.WithInMemory[order.Order](),
 		natsstore.WithSnapshot[order.Order](5, time.Second),
 		natsstore.WithEvent[order.Closed, order.Order]("OrderClosed"),
@@ -45,7 +50,7 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 		natsstore.WithEvent[order.Verified, order.Order]("OrderVerified"),
 	)
 
-	d, err := aggregate.Project(ctx, ord, customercmd.NewOrderPostedHandler(
+	d, err := eventstore.Project(ctx, ord, customercmd.NewOrderPostedHandler(
 		customercmd.NewVerifyOrderHandler(cust),
 	))
 	if err != nil {
@@ -54,7 +59,7 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 	}
 	cons = append(cons, d)
 
-	d, err = aggregate.Project(ctx, cust, ordercmd.NewOrderRejectedHandler(
+	d, err = eventstore.Project(ctx, cust, ordercmd.NewOrderRejectedHandler(
 		ordercmd.NewCloseOrderHandler(ord),
 	))
 	if err != nil {
@@ -65,6 +70,13 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 	custproj := custquery.NewCustomerProjection()
 	ordproj := orderquery.NewMemOrders()
 	d, err = ord.Subscribe(ctx, orderquery.NewOrderListProjector(custproj, ordproj))
+	if err != nil {
+		slog.Error("subscription create consumer", "error", err)
+		panic(err)
+	}
+	cons = append(cons, d)
+
+	d, err = cust.Subscribe(ctx, custquery.NewCustomerListProjector(custproj))
 	if err != nil {
 		slog.Error("subscription create consumer", "error", err)
 		panic(err)

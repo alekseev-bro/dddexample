@@ -17,8 +17,8 @@ type Order struct {
 	UserName string
 }
 
-type AllLister interface {
-	ListAll() ([]Order, error)
+type OrdersLister interface {
+	ListOrders() ([]Order, error)
 }
 
 type CustomerGetter interface {
@@ -38,14 +38,14 @@ func NewOrderListProjector(customers CustomerGetter, orders *MemOrders) *OrderLi
 }
 
 type OrderListQueryHandler struct {
-	Orders AllLister
+	Orders OrdersLister
 }
 
 type MemOrders struct {
 	Orders []Order
 }
 
-func (m *MemOrders) ListAll() ([]Order, error) {
+func (m *MemOrders) ListOrders() ([]Order, error) {
 	return m.Orders, nil
 }
 

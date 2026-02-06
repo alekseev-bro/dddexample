@@ -2,18 +2,36 @@ package carpark
 
 import (
 	"context"
+
+	"github.com/alekseev-bro/ddd/pkg/codec"
+	"github.com/alekseev-bro/ddd/pkg/eventstore"
+	"github.com/alekseev-bro/ddd/pkg/natsstore"
+	"github.com/alekseev-bro/dddexample/internal/carpark/internal/aggregate/car"
+	carcmd "github.com/alekseev-bro/dddexample/internal/carpark/internal/aggregate/car/command"
+	"github.com/alekseev-bro/dddexample/internal/carpark/internal/integration"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type Module struct {
-
-	// ...
+	RegisterCarHandler eventstore.CommandHandler[car.Car, carcmd.RegisterCar]
 }
 
-type handler struct {
-}
+func NewModule(ctx context.Context, js jetstream.JetStream, publisher integration.Publisher) *Module {
+	cars := natsstore.New(ctx, js,
+		natsstore.WithInMemory[car.Car](),
+		natsstore.WithEvent[car.Arrived, car.Car]("CarArrived"))
 
-func (h *handler) HandleEvent(ctx context.Context, eventID string) error {
+	d, err := cars.Subscribe(ctx, integration.NewCarHandler(publisher, codec.JSON))
+	if err != nil {
+		panic(err)
+	}
 
-	// Handle the event
-	return nil
+	go func() {
+		<-ctx.Done()
+		d.Drain()
+	}()
+
+	return &Module{
+		RegisterCarHandler: carcmd.NewRegisterCarHandler(cars),
+	}
 }
