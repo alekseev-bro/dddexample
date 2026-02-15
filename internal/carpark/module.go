@@ -2,6 +2,8 @@ package carpark
 
 import (
 	"context"
+	"log/slog"
+	"os"
 
 	"github.com/alekseev-bro/ddd/pkg/codec"
 	"github.com/alekseev-bro/ddd/pkg/eventstore"
@@ -17,13 +19,18 @@ type Module struct {
 }
 
 func NewModule(ctx context.Context, js jetstream.JetStream, publisher integration.Publisher) *Module {
-	cars := natsstore.New(ctx, js,
+	cars, err := natsstore.New(ctx, js,
 		natsstore.WithInMemory[car.Car](),
-		natsstore.WithEvent[car.Arrived, car.Car]("CarArrived"))
-
+		natsstore.WithEvent[car.Arrived, car.Car]("CarArrived"),
+	)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 	d, err := cars.Subscribe(ctx, integration.NewCarHandler(publisher, codec.JSON))
 	if err != nil {
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	go func() {

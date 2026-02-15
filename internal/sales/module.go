@@ -3,6 +3,7 @@ package sales
 import (
 	"context"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/alekseev-bro/ddd/pkg/drivers/stream/esnats"
@@ -36,28 +37,35 @@ type Module struct {
 
 func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 	var cons []stream.Drainer
-	cust := natsstore.New(ctx, js,
+	cust, err := natsstore.New(ctx, js,
 		natsstore.WithInMemory[customer.Customer](),
 		natsstore.WithSnapshot[customer.Customer](5, time.Second, 5*time.Second),
 		natsstore.WithEvent[customer.OrderRejected, customer.Customer]("OrderRejected"),
 		natsstore.WithEvent[customer.OrderAccepted, customer.Customer]("OrderAccepted"),
 		natsstore.WithEvent[customer.Registered, customer.Customer]("CustomerRegistered"),
 	)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 
-	ord := natsstore.New(ctx, js,
+	ord, err := natsstore.New(ctx, js,
 		natsstore.WithInMemory[order.Order](),
 		natsstore.WithSnapshot[order.Order](5, time.Second, 5*time.Second),
 		natsstore.WithEvent[order.Closed, order.Order]("OrderClosed"),
 		natsstore.WithEvent[order.Posted, order.Order]("OrderPosted"),
 		natsstore.WithEvent[order.Verified, order.Order]("OrderVerified"),
 	)
-
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 	d, err := eventstore.Project(ctx, ord, customercmd.NewOrderPostedHandler(
 		customercmd.NewVerifyOrderHandler(cust),
 	))
 	if err != nil {
-		slog.Error("subscription create consumer", "error", err)
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	cons = append(cons, d)
 
@@ -65,30 +73,30 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 		ordercmd.NewCloseOrderHandler(ord),
 	))
 	if err != nil {
-		slog.Error("subscription create consumer", "error", err)
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	cons = append(cons, d)
 	custproj := custquery.NewCustomerProjection()
 	ordproj := orderquery.NewMemOrders()
 	d, err = ord.Subscribe(ctx, orderquery.NewOrderListProjector(custproj, ordproj))
 	if err != nil {
-		slog.Error("subscription create consumer", "error", err)
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	cons = append(cons, d)
 
 	d, err = cust.Subscribe(ctx, custquery.NewCustomerListProjector(custproj))
 	if err != nil {
-		slog.Error("subscription create consumer", "error", err)
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	cons = append(cons, d)
 
 	d, err = cust.Subscribe(ctx, custquery.NewCustomerListProjector(custproj))
 	if err != nil {
-		slog.Error("subscription create consumer", "error", err)
-		panic(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	cons = append(cons, d)
 	dr, err := esnats.NewDriver(ctx, js, "car", esnats.EventStreamConfig{
