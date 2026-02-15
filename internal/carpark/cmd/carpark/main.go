@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/alekseev-bro/dddexample/internal/carpark"
 	"github.com/alekseev-bro/dddexample/internal/carpark/internal/aggregate/car"
@@ -31,7 +32,7 @@ func NewJSPublisher(js jetstream.JetStream) *jsPublisher {
 
 func main() {
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	slog.SetLogLoggerLevel(slog.LevelInfo)
 
@@ -39,6 +40,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer nc.Drain()
 	js, err := jetstream.New(nc)
 
 	if err != nil {

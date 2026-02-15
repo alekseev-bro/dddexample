@@ -30,10 +30,10 @@ const (
 	Available
 )
 
-type MaintananceState uint
+type MaintenanceState uint
 
 const (
-	InMaintenance MaintananceState = iota
+	InMaintenance MaintenanceState = iota
 	NotNeeded
 	Needed
 )
@@ -43,7 +43,7 @@ type Car struct {
 	VIN string
 	CarModel
 	RentState
-	MaintananceState
+	MaintenanceState
 }
 
 func New(model string, brand string) *Car {
@@ -63,6 +63,6 @@ func (c *Car) ToCarV1() *carpark.Car {
 			Model: c.Model,
 		},
 		RentState:        carpark.RentState(c.RentState),
-		MaintananceState: carpark.MaintananceState(c.MaintananceState),
+		MaintenanceState: carpark.MaintenanceState(c.MaintenanceState),
 	}
 }
