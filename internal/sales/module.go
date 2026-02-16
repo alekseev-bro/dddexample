@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
-	"github.com/alekseev-bro/ddd/pkg/drivers/stream/esnats"
+	"github.com/alekseev-bro/ddd/pkg/drivers/stream/natsstream"
 	"github.com/alekseev-bro/ddd/pkg/stream"
 
 	na "github.com/alekseev-bro/ddd/pkg/natsaggregate"
@@ -99,7 +99,7 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 		os.Exit(1)
 	}
 	cons = append(cons, d)
-	dr, err := esnats.NewStore(ctx, js, "car", esnats.WithStoreType(esnats.Memory))
+	dr, err := natsstream.NewStore(ctx, js, "car", natsstream.WithStoreType(natsstream.Memory))
 	if err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
