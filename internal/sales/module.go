@@ -35,7 +35,7 @@ type Module struct {
 }
 
 func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
-	var cons []stream.Drainer
+	var cons stream.DrainList
 	cust, err := na.New(ctx, js,
 		na.WithInMemory[customer.Customer](),
 		na.WithSnapshotEventCount[customer.Customer](5),
@@ -118,10 +118,9 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 
 	go func() {
 		<-ctx.Done()
-		for _, c := range cons {
-			if err := c.Drain(); err != nil {
-				slog.Error("subscription drain", "error", err)
-			}
+		if err := cons.Drain(); err != nil {
+			slog.Error("subscription drain", "error", err)
+			return
 		}
 		slog.Info("all drainded")
 	}()
