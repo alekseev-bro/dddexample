@@ -104,7 +104,7 @@ func NewModule(ctx context.Context, js jetstream.JetStream) *Module {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
-	carStream := stream.New(dr, stream.WithEvent[carpark.CarArrived]("CarArrived"))
+	carStream, err := stream.New(dr, stream.WithEvent[carpark.CarArrived]("CarArrived"))
 	_ = carStream
 	// carStream.Subscribe(ctx, nil)
 
