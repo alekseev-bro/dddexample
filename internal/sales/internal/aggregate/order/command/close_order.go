@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
-	"github.com/alekseev-bro/ddd/pkg/eventstore"
 	"github.com/alekseev-bro/ddd/pkg/stream"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/customer"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/aggregate/order"
@@ -30,10 +29,10 @@ func (h *closeOrderHandler) HandleCommand(ctx context.Context, cmd Close) ([]str
 }
 
 type orderRejectedHandler struct {
-	CloseOrderHandler eventstore.CommandHandler[order.Order, Close]
+	CloseOrderHandler aggregate.CommandHandler[order.Order, Close]
 }
 
-func NewOrderRejectedHandler(h eventstore.CommandHandler[order.Order, Close]) *orderRejectedHandler {
+func NewOrderRejectedHandler(h aggregate.CommandHandler[order.Order, Close]) *orderRejectedHandler {
 
 	return &orderRejectedHandler{CloseOrderHandler: h}
 }

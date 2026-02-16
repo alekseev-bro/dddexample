@@ -30,10 +30,10 @@ const (
 	Available
 )
 
-type MaintananceState uint
+type MaintenanceState uint
 
 const (
-	InMaintenance MaintananceState = iota
+	InMaintenance MaintenanceState = iota
 	NotNeeded
 	Needed
 )
@@ -43,11 +43,15 @@ type Car struct {
 	VIN string
 	CarModel
 	RentState
-	MaintananceState
+	MaintenanceState
 }
 
 func New(model string, brand string) *Car {
-	return &Car{ID: aggregate.NewID(), VIN: uuid.New().String(), CarModel: CarModel{brand, model}}
+	id, err := aggregate.NewID()
+	if err != nil {
+		panic(err)
+	}
+	return &Car{ID: id, VIN: uuid.New().String(), CarModel: CarModel{brand, model}}
 }
 
 func (c *Car) Register(car *Car) (aggregate.Events[Car], error) {
@@ -63,6 +67,6 @@ func (c *Car) ToCarV1() *carpark.Car {
 			Model: c.Model,
 		},
 		RentState:        carpark.RentState(c.RentState),
-		MaintananceState: carpark.MaintananceState(c.MaintananceState),
+		MaintenanceState: carpark.MaintenanceState(c.MaintenanceState),
 	}
 }

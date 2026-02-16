@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/ddd/pkg/codec"
@@ -30,7 +31,8 @@ func (h *carHandler) HandleEvents(ctx context.Context, event aggregate.Evolver[c
 
 		b, err := h.codec.Marshal(ev.ToArrivedV1())
 		if err != nil {
-			panic(err)
+			slog.Error("can't marshal event", "error", err)
+			return err
 		}
 		h.publisher.Publish(ctx, "carpark.car.arrived", b)
 

@@ -2,7 +2,6 @@ package order
 
 import (
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
-	"github.com/alekseev-bro/ddd/pkg/eventstore"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
 )
 
@@ -19,7 +18,10 @@ func New(customerID aggregate.ID, cars OrderLines) *Order {
 	if err != nil {
 		panic(err)
 	}
-	id := aggregate.NewID()
+	id, err := aggregate.NewID()
+	if err != nil {
+		panic(err)
+	}
 
 	o := &Order{
 		ID:         id,
@@ -32,7 +34,7 @@ func New(customerID aggregate.ID, cars OrderLines) *Order {
 
 func (o *Order) Post(ord *Order) (aggregate.Events[Order], error) {
 	if o.Status != StatusNew {
-		return nil, eventstore.ErrAggregateAlreadyExists
+		return nil, aggregate.ErrAlreadyExists
 	}
 	return aggregate.NewEvents(&Posted{
 		OrderID:    ord.ID,

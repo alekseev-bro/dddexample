@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
-	"github.com/alekseev-bro/ddd/pkg/eventstore"
 )
 
 type Customer struct {
@@ -17,7 +16,10 @@ type Customer struct {
 }
 
 func New(name string, age uint, addresses []Address) *Customer {
-	id := aggregate.NewID()
+	id, err := aggregate.NewID()
+	if err != nil {
+		panic(err)
+	}
 
 	return &Customer{
 		ID:        id,
@@ -30,7 +32,7 @@ func New(name string, age uint, addresses []Address) *Customer {
 
 func (c *Customer) Register(cust *Customer) (aggregate.Events[Customer], error) {
 	if c.Exists {
-		return nil, eventstore.ErrAggregateAlreadyExists
+		return nil, aggregate.ErrAlreadyExists
 	}
 	return aggregate.NewEvents(&Registered{
 		CustomerID:   cust.ID,

@@ -29,7 +29,7 @@ type Car struct {
 	VIN string
 	CarModel
 	RentState
-	MaintananceState
+	MaintenanceState
 }
 
 type CarModel struct {
@@ -44,10 +44,10 @@ const (
 	Available
 )
 
-type MaintananceState uint
+type MaintenanceState uint
 
 const (
-	InMaintenance MaintananceState = iota
+	InMaintenance MaintenanceState = iota
 	NotNeeded
 	Needed
 )
@@ -81,7 +81,7 @@ func (p *carListProjector) Project(event any) error {
 				Model: ev.Car.Model,
 			},
 			RentState:        RentState(ev.Car.RentState),
-			MaintananceState: MaintananceState(ev.Car.MaintananceState),
+			MaintenanceState: MaintenanceState(ev.Car.MaintenanceState),
 		}
 		return p.store.AddCar(car)
 	default:

@@ -7,7 +7,7 @@ type Car struct {
 	VIN string
 	CarModel
 	RentState
-	MaintananceState
+	MaintenanceState
 }
 
 type CarModel struct {
@@ -22,10 +22,10 @@ const (
 	Available
 )
 
-type MaintananceState uint
+type MaintenanceState uint
 
 const (
-	InMaintenance MaintananceState = iota
+	InMaintenance MaintenanceState = iota
 	NotNeeded
 	Needed
 )
