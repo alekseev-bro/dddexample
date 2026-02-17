@@ -6,6 +6,11 @@ import (
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
 )
 
+var (
+	ErrInvalidAge    = errors.New("invalid age")
+	ErrAlreadyExists = errors.New("customer already exists")
+)
+
 type Customer struct {
 	ID           aggregate.ID
 	Name         string
@@ -32,7 +37,7 @@ func New(name string, age uint, addresses []Address) *Customer {
 
 func (c *Customer) Register(cust *Customer) (aggregate.Events[Customer], error) {
 	if c.Exists {
-		return nil, aggregate.ErrAlreadyExists
+		return nil, ErrAlreadyExists
 	}
 	return aggregate.NewEvents(&Registered{
 		CustomerID:   cust.ID,
@@ -43,8 +48,6 @@ func (c *Customer) Register(cust *Customer) (aggregate.Events[Customer], error) 
 	}), nil
 
 }
-
-var ErrInvalidAge = errors.New("invalid age")
 
 func (c *Customer) VerifyOrder(o aggregate.ID) (aggregate.Events[Customer], error) {
 

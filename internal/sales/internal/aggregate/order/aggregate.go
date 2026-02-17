@@ -1,8 +1,14 @@
 package order
 
 import (
+	"errors"
+
 	"github.com/alekseev-bro/ddd/pkg/aggregate"
 	"github.com/alekseev-bro/dddexample/internal/sales/internal/values"
+)
+
+var (
+	ErrAlreadyExists = errors.New("customer already exists")
 )
 
 type Order struct {
@@ -34,7 +40,7 @@ func New(customerID aggregate.ID, cars OrderLines) *Order {
 
 func (o *Order) Post(ord *Order) (aggregate.Events[Order], error) {
 	if o.Status != StatusNew {
-		return nil, aggregate.ErrAlreadyExists
+		return nil, ErrAlreadyExists
 	}
 	return aggregate.NewEvents(&Posted{
 		OrderID:    ord.ID,
